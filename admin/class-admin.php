@@ -195,7 +195,16 @@ class RB_Admin {
             'rb-customers',
             array($this, 'display_customers_page')
         );
-        
+
+        add_submenu_page(
+            'restaurant-booking',
+            esc_html__('Timeline View', 'restaurant-booking'),
+            '📊 ' . esc_html__('Timeline', 'restaurant-booking'),
+            'manage_options',
+            'rb-timeline',
+            array($this, 'display_timeline_page')
+        );
+
         add_submenu_page(
             'restaurant-booking',
             rb_t('settings'),
@@ -1560,7 +1569,126 @@ class RB_Admin {
         </script>
         <?php
     }
-    
+
+    public function display_timeline_page() {
+        global $rb_location;
+
+        if (!$rb_location) {
+            require_once RB_PLUGIN_DIR . 'includes/class-location.php';
+            $rb_location = new RB_Location();
+        }
+
+        $locations = $rb_location ? $rb_location->all() : array();
+
+        if (empty($locations)) {
+            echo '<div class="notice notice-warning"><p>' . esc_html__('No locations found. Please configure a location before viewing the timeline.', 'restaurant-booking') . '</p></div>';
+            return;
+        }
+
+        $location_lookup = array();
+        foreach ($locations as $location_item) {
+            $location_lookup[(int) $location_item->id] = $location_item;
+        }
+
+        $selected_location_id = isset($_GET['location_id']) ? intval($_GET['location_id']) : 0;
+        if (!$selected_location_id || !isset($location_lookup[$selected_location_id])) {
+            $selected_location_id = (int) $locations[0]->id;
+        }
+
+        $date_param = isset($_GET['timeline_date']) ? sanitize_text_field(wp_unslash($_GET['timeline_date'])) : '';
+        $current_timestamp = current_time('timestamp');
+        $today = date_i18n('Y-m-d', $current_timestamp);
+        $selected_date = (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date_param)) ? $date_param : $today;
+
+        $ajax_nonce = wp_create_nonce('rb_admin_nonce');
+
+        wp_localize_script('rb-timeline-view', 'rbTimelineViewData', array(
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'nonce' => $ajax_nonce,
+            'initialDate' => $selected_date,
+            'initialLocationId' => $selected_location_id,
+            'autoRefresh' => true,
+            'refreshInterval' => 30000,
+            'lastUpdatedLabel' => esc_html__('Last updated:', 'restaurant-booking'),
+        ));
+
+        $active_location = $location_lookup[$selected_location_id];
+
+        ?>
+        <div id="rb-timeline-root" class="wrap rb-timeline-wrap" data-initial-date="<?php echo esc_attr($selected_date); ?>" data-location-id="<?php echo esc_attr($selected_location_id); ?>" data-auto-refresh="1">
+            <h1>📊 <?php echo esc_html__('Timeline View - Restaurant Booking', 'restaurant-booking'); ?></h1>
+
+            <div class="rb-admin-language-switcher" style="float: right; margin-top: -50px;">
+                <?php
+                if (class_exists('RB_Language_Switcher')) {
+                    $switcher = new RB_Language_Switcher();
+                    $switcher->render_dropdown();
+                }
+                ?>
+            </div>
+
+            <div class="rb-timeline-toolbar">
+                <div class="rb-timeline-toolbar-group">
+                    <label for="rb-timeline-location"><?php esc_html_e('Location', 'restaurant-booking'); ?></label>
+                    <select id="rb-timeline-location" name="location_id">
+                        <?php foreach ($locations as $location) : ?>
+                            <option value="<?php echo esc_attr($location->id); ?>" <?php selected($selected_location_id, (int) $location->id); ?>>
+                                <?php echo esc_html($location->name); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="rb-timeline-toolbar-group rb-timeline-date-group">
+                    <button type="button" class="button" id="rb-timeline-prev-day" aria-label="<?php esc_attr_e('Previous day', 'restaurant-booking'); ?>">&larr;</button>
+                    <input type="date" id="rb-timeline-date" value="<?php echo esc_attr($selected_date); ?>" />
+                    <button type="button" class="button" id="rb-timeline-next-day" aria-label="<?php esc_attr_e('Next day', 'restaurant-booking'); ?>">&rarr;</button>
+                </div>
+
+                <div class="rb-timeline-toolbar-group rb-timeline-refresh-group">
+                    <label class="rb-timeline-toggle">
+                        <input type="checkbox" id="rb-timeline-auto-refresh" checked />
+                        <span><?php esc_html_e('Auto refresh (30s)', 'restaurant-booking'); ?></span>
+                    </label>
+                    <button type="button" class="button button-secondary" id="rb-timeline-refresh"><?php esc_html_e('Refresh', 'restaurant-booking'); ?></button>
+                </div>
+            </div>
+
+            <div class="rb-timeline-meta">
+                <div class="rb-timeline-location-summary">
+                    <strong><?php echo esc_html($active_location->name); ?></strong>
+                    <?php if (!empty($active_location->address)) : ?>
+                        <span>· <?php echo esc_html($active_location->address); ?></span>
+                    <?php endif; ?>
+                    <?php if (!empty($active_location->hotline)) : ?>
+                        <span>· 📞 <?php echo esc_html($active_location->hotline); ?></span>
+                    <?php endif; ?>
+                </div>
+                <span id="rb-last-refreshed" class="rb-last-refreshed"></span>
+            </div>
+
+            <div id="rb-timeline-notices" class="rb-timeline-notices" aria-live="polite"></div>
+
+            <div id="rb-timeline-loading" class="rb-timeline-loading" role="status">
+                <span class="spinner is-active"></span>
+                <span class="rb-timeline-loading-text"><?php esc_html_e('Loading timeline...', 'restaurant-booking'); ?></span>
+            </div>
+
+            <div id="rb-timeline-container" class="rb-timeline-container" data-slot-height="42"></div>
+
+            <div class="rb-timeline-legend">
+                <h2><?php esc_html_e('Table status legend', 'restaurant-booking'); ?></h2>
+                <ul>
+                    <li><span class="rb-legend-dot is-available"></span><?php esc_html_e('Available', 'restaurant-booking'); ?></li>
+                    <li><span class="rb-legend-dot is-occupied"></span><?php esc_html_e('Occupied', 'restaurant-booking'); ?></li>
+                    <li><span class="rb-legend-dot is-cleaning"></span><?php esc_html_e('Cleaning', 'restaurant-booking'); ?></li>
+                    <li><span class="rb-legend-dot is-reserved"></span><?php esc_html_e('Reserved', 'restaurant-booking'); ?></li>
+                </ul>
+            </div>
+        </div>
+        <?php
+    }
+
     public function display_settings_page() {
         $settings = get_option('rb_settings', array());
         

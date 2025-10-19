@@ -23,10 +23,16 @@ class RB_Ajax {
         add_action('wp_ajax_rb_set_customer_blacklist', array($this, 'set_customer_blacklist'));
         add_action('wp_ajax_rb_get_customer_stats', array($this, 'get_customer_stats'));
         add_action('wp_ajax_rb_update_customer_note', array($this, 'update_customer_note'));
-        
+
         // NEW: Advanced features from Settings
         add_action('wp_ajax_rb_cleanup_old_bookings', array($this, 'cleanup_old_bookings'));
         add_action('wp_ajax_rb_reset_plugin', array($this, 'reset_plugin'));
+
+        // Timeline & extended availability endpoints
+        add_action('wp_ajax_rb_get_timeline_data', array($this, 'get_timeline_data'));
+        add_action('wp_ajax_rb_update_table_status', array($this, 'update_table_status'));
+        add_action('wp_ajax_rb_check_availability_extended', array($this, 'check_availability_extended'));
+        add_action('wp_ajax_nopriv_rb_check_availability_extended', array($this, 'check_availability_extended'));
     }
     
     
@@ -374,7 +380,7 @@ class RB_Ajax {
         if (!current_user_can('manage_options')) {
             wp_die(__('Unauthorized', 'restaurant-booking'));
         }
-        
+
         if (!check_ajax_referer('rb_admin_nonce', 'nonce', false)) {
             wp_send_json_error(array('message' => __('Security check failed', 'restaurant-booking')));
         }
@@ -385,6 +391,133 @@ class RB_Ajax {
         wp_send_json_success(array(
             'message' => __('Stats loaded', 'restaurant-booking'),
             'stats' => $stats
+        ));
+    }
+
+    public function get_timeline_data() {
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Unauthorized', 'restaurant-booking')));
+        }
+
+        if (!check_ajax_referer('rb_admin_nonce', 'nonce', false)) {
+            wp_send_json_error(array('message' => __('Security check failed', 'restaurant-booking')));
+        }
+
+        $date = isset($_POST['date']) ? sanitize_text_field(wp_unslash($_POST['date'])) : '';
+        $location_id = isset($_POST['location_id']) ? intval($_POST['location_id']) : 0;
+
+        if (empty($date) || $location_id <= 0) {
+            wp_send_json_error(array('message' => __('Invalid request parameters.', 'restaurant-booking')));
+        }
+
+        global $rb_booking;
+        if (!$rb_booking instanceof RB_Booking) {
+            require_once RB_PLUGIN_DIR . 'includes/class-booking.php';
+            $rb_booking = new RB_Booking();
+        }
+
+        $timeline = $rb_booking->get_timeline_data($date, $location_id);
+
+        if (empty($timeline)) {
+            wp_send_json_error(array('message' => __('No timeline data found for the given request.', 'restaurant-booking')));
+        }
+
+        wp_send_json_success($timeline);
+    }
+
+    public function update_table_status() {
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Unauthorized', 'restaurant-booking')));
+        }
+
+        if (!check_ajax_referer('rb_admin_nonce', 'nonce', false)) {
+            wp_send_json_error(array('message' => __('Security check failed', 'restaurant-booking')));
+        }
+
+        $table_id = isset($_POST['table_id']) ? intval($_POST['table_id']) : 0;
+        $status = isset($_POST['status']) ? sanitize_text_field(wp_unslash($_POST['status'])) : '';
+        $booking_id = isset($_POST['booking_id']) ? intval($_POST['booking_id']) : 0;
+
+        if ($table_id <= 0 || empty($status)) {
+            wp_send_json_error(array('message' => __('Invalid request parameters.', 'restaurant-booking')));
+        }
+
+        $allowed_statuses = array('available', 'occupied', 'cleaning', 'reserved');
+        if (!in_array($status, $allowed_statuses, true)) {
+            wp_send_json_error(array('message' => __('Invalid table status.', 'restaurant-booking')));
+        }
+
+        if ($booking_id <= 0) {
+            $booking_id = null;
+        }
+
+        global $rb_booking;
+        if (!$rb_booking instanceof RB_Booking) {
+            require_once RB_PLUGIN_DIR . 'includes/class-booking.php';
+            $rb_booking = new RB_Booking();
+        }
+
+        $updated = $rb_booking->update_table_status($table_id, $status, $booking_id);
+
+        if (!$updated) {
+            wp_send_json_error(array('message' => __('Failed to update table status.', 'restaurant-booking')));
+        }
+
+        wp_send_json_success(array(
+            'message' => __('Table status updated successfully.', 'restaurant-booking'),
+            'table_id' => $table_id,
+            'status' => $status,
+        ));
+    }
+
+    public function check_availability_extended() {
+        if (!check_ajax_referer('rb_frontend_nonce', 'nonce', false)) {
+            wp_send_json_error(array('message' => __('Security check failed', 'restaurant-booking')));
+        }
+
+        $date = isset($_POST['date']) ? sanitize_text_field(wp_unslash($_POST['date'])) : '';
+        $checkin_time = isset($_POST['checkin_time']) ? sanitize_text_field(wp_unslash($_POST['checkin_time'])) : '';
+        $checkout_time = isset($_POST['checkout_time']) ? sanitize_text_field(wp_unslash($_POST['checkout_time'])) : '';
+        $guest_count = isset($_POST['guest_count']) ? intval($_POST['guest_count']) : 0;
+        $location_id = isset($_POST['location_id']) ? intval($_POST['location_id']) : 0;
+
+        if (empty($date) || empty($checkin_time) || empty($checkout_time) || $guest_count <= 0 || $location_id <= 0) {
+            wp_send_json_error(array('message' => __('Invalid request parameters.', 'restaurant-booking')));
+        }
+
+        global $rb_booking;
+        if (!$rb_booking instanceof RB_Booking) {
+            require_once RB_PLUGIN_DIR . 'includes/class-booking.php';
+            $rb_booking = new RB_Booking();
+        }
+
+        $is_available = $rb_booking->is_time_slot_available(
+            $date,
+            $checkin_time,
+            $guest_count,
+            $checkin_time,
+            $checkout_time,
+            null,
+            $location_id
+        );
+
+        $available_count = $rb_booking->available_table_count(
+            $date,
+            $checkin_time,
+            $guest_count,
+            $location_id,
+            $checkin_time,
+            $checkout_time
+        );
+
+        $message = $is_available
+            ? __('The selected time slot is available.', 'restaurant-booking')
+            : __('The selected time slot is not available.', 'restaurant-booking');
+
+        wp_send_json_success(array(
+            'available' => (bool) $is_available,
+            'message' => $message,
+            'available_count' => (int) $available_count,
         ));
     }
 
