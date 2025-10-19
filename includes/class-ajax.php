@@ -478,6 +478,7 @@ class RB_Ajax {
         $date = isset($_POST['date']) ? sanitize_text_field(wp_unslash($_POST['date'])) : '';
         $checkin_time = isset($_POST['checkin_time']) ? sanitize_text_field(wp_unslash($_POST['checkin_time'])) : '';
         $checkout_time = isset($_POST['checkout_time']) ? sanitize_text_field(wp_unslash($_POST['checkout_time'])) : '';
+        $duration = isset($_POST['duration']) ? floatval($_POST['duration']) : 0;
         $guest_count = isset($_POST['guest_count']) ? intval($_POST['guest_count']) : 0;
         $location_id = isset($_POST['location_id']) ? intval($_POST['location_id']) : 0;
 
@@ -489,6 +490,14 @@ class RB_Ajax {
         if (!$rb_booking instanceof RB_Booking) {
             require_once RB_PLUGIN_DIR . 'includes/class-booking.php';
             $rb_booking = new RB_Booking();
+        }
+
+        if ($duration <= 0 && strpos($checkin_time, ':') !== false && strpos($checkout_time, ':') !== false) {
+            $duration = (strtotime($checkout_time) - strtotime($checkin_time)) / HOUR_IN_SECONDS;
+        }
+
+        if ($duration <= 0) {
+            $duration = 2;
         }
 
         $is_available = $rb_booking->is_time_slot_available(
@@ -510,14 +519,53 @@ class RB_Ajax {
             $checkout_time
         );
 
-        $message = $is_available
-            ? __('The selected time slot is available.', 'restaurant-booking')
-            : __('The selected time slot is not available.', 'restaurant-booking');
+        $cleanup_time = date('H:i', strtotime($checkout_time) + (15 * MINUTE_IN_SECONDS) + HOUR_IN_SECONDS);
+
+        if ($is_available && $available_count > 0) {
+            wp_send_json_success(array(
+                'available' => true,
+                'message' => __('The selected time slot is available.', 'restaurant-booking'),
+                'available_tables' => (int) $available_count,
+                'checkin_time' => $checkin_time,
+                'checkout_time' => $checkout_time,
+                'cleanup_time' => $cleanup_time,
+            ));
+        }
+
+        $offsets = array(-90, -60, -30, 30, 60, 90);
+        $alternatives = array();
+
+        foreach ($offsets as $offset) {
+            $alt_timestamp = strtotime($checkin_time) + ($offset * MINUTE_IN_SECONDS);
+
+            if ($alt_timestamp === false) {
+                continue;
+            }
+
+            $alt_checkin = date('H:i', $alt_timestamp);
+            $alt_checkout = date('H:i', strtotime($alt_checkin) + ($duration * HOUR_IN_SECONDS));
+
+            if ($rb_booking->is_time_slot_available($date, $alt_checkin, $guest_count, $alt_checkin, $alt_checkout, null, $location_id)) {
+                $alternatives[] = array(
+                    'checkin' => $alt_checkin,
+                    'checkout' => $alt_checkout,
+                    'diff_minutes' => $offset,
+                );
+            }
+
+            if (count($alternatives) >= 2) {
+                break;
+            }
+        }
 
         wp_send_json_success(array(
-            'available' => (bool) $is_available,
-            'message' => $message,
-            'available_count' => (int) $available_count,
+            'available' => false,
+            'message' => __('The selected time slot is not available.', 'restaurant-booking'),
+            'available_tables' => (int) $available_count,
+            'checkin_time' => $checkin_time,
+            'checkout_time' => $checkout_time,
+            'cleanup_time' => $cleanup_time,
+            'alternatives' => $alternatives,
         ));
     }
 

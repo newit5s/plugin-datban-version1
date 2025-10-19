@@ -1,0 +1,224 @@
+/* Timeline Booking Form Styles */
+
+.rb-time-selection-section {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    padding: 25px;
+    margin: 25px 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.rb-time-selection-section h3 {
+    margin-top: 0;
+    color: #2c3e50;
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 12px;
+}
+
+.rb-form-row {
+    margin-bottom: 20px;
+}
+
+.rb-form-row:last-of-type {
+    margin-bottom: 0;
+}
+
+.rb-form-row label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 14px;
+}
+
+.rb-form-row select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    font-size: 14px;
+    background: #ffffff;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.rb-form-row select:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.rb-form-row select:hover {
+    border-color: #3498db;
+}
+
+.rb-hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #7f8c8d;
+    font-style: italic;
+}
+
+.rb-time-display {
+    background: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 15px;
+    margin-top: 20px;
+}
+
+.rb-time-display p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.8;
+    color: #2c3e50;
+}
+
+.rb-time-display strong {
+    color: #e74c3c;
+    font-size: 15px;
+}
+
+.rb-time-display span {
+    background: #ecf0f1;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-weight: 600;
+    color: #2980b9;
+    font-family: 'Courier New', monospace;
+}
+
+/* Availability Messages */
+.rb-availability-message {
+    margin-top: 20px;
+    display: none;
+}
+
+.rb-availability-message.is-visible {
+    display: block;
+}
+
+.rb-success-message {
+    background: #d4edda;
+    border: 2px solid #28a745;
+    border-radius: 6px;
+    padding: 15px;
+    color: #155724;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.rb-success-message strong {
+    display: block;
+    font-size: 16px;
+    margin-bottom: 8px;
+}
+
+.rb-success-message .button {
+    margin-top: 12px;
+}
+
+.rb-error-message {
+    background: #f8d7da;
+    border: 2px solid #dc3545;
+    border-radius: 6px;
+    padding: 15px;
+    color: #721c24;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.rb-error-message strong {
+    display: block;
+    font-size: 16px;
+    margin-bottom: 8px;
+}
+
+.rb-error-message p {
+    margin: 12px 0 8px;
+    font-weight: 600;
+}
+
+/* Alternative Time Buttons */
+.rb-alternative-time {
+    display: inline-block;
+    margin: 5px 10px 5px 0;
+    padding: 10px 15px;
+    background: #3498db;
+    color: #ffffff;
+    border: 2px solid #2980b9;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.rb-alternative-time:hover {
+    background: #2980b9;
+    border-color: #1a5276;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+}
+
+.rb-alternative-time:active {
+    transform: translateY(0);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .rb-time-selection-section {
+        padding: 20px;
+        margin: 20px 0;
+    }
+
+    .rb-time-selection-section h3 {
+        font-size: 16px;
+    }
+
+    .rb-form-row {
+        margin-bottom: 16px;
+    }
+
+    .rb-form-row label {
+        font-size: 13px;
+    }
+
+    .rb-form-row select {
+        padding: 10px;
+        font-size: 14px;
+    }
+
+    .rb-time-display {
+        padding: 12px;
+    }
+
+    .rb-time-display p {
+        font-size: 13px;
+    }
+
+    .rb-alternative-time {
+        display: block;
+        width: 100%;
+        margin: 8px 0;
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .rb-time-selection-section {
+        padding: 15px;
+    }
+
+    .rb-success-message,
+    .rb-error-message {
+        padding: 12px;
+    }
+}
