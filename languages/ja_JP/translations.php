@@ -149,6 +149,15 @@ return array(
     
     // ========== ADMIN MENU ==========
     'dashboard' => 'ダッシュボード',
+    'timeline' => 'タイムライン',
+    'timeline_overview' => 'タイムライン概要',
+    'no_table_assigned' => 'テーブル未割り当て',
+    'timeline_switch_location' => 'タイムラインを表示する前に正しい店舗に切り替えてください。',
+    'timeline_switch_status' => 'テーブル状態を更新する前に正しい店舗に切り替えてください。',
+    'timeline_table_missing' => '選択したテーブルはこの店舗に存在しません。',
+    'timeline_table_capacity' => '選択したテーブルでは人数を収容できません。',
+    'timeline_table_unavailable' => '選択したテーブルはこの時間帯では利用できません。',
+    'timeline_status_update_failed' => 'テーブルの状態を更新できませんでした。もう一度お試しください。',
     'manage_bookings' => '予約管理',
     'create_new_booking' => '新規予約作成',
     'manage_tables' => 'テーブル管理',

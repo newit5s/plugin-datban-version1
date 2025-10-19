@@ -149,6 +149,15 @@ return array(
     
     // ========== ADMIN MENU ==========
     'dashboard' => 'Dashboard',
+    'timeline' => 'Timeline',
+    'timeline_overview' => 'Timeline overview',
+    'no_table_assigned' => 'No table assigned',
+    'timeline_switch_location' => 'Please switch to the correct location before viewing this timeline.',
+    'timeline_switch_status' => 'Please switch to the correct location before updating table statuses.',
+    'timeline_table_missing' => 'The selected table does not exist for this location.',
+    'timeline_table_capacity' => 'The selected table cannot accommodate the number of guests.',
+    'timeline_table_unavailable' => 'The selected table is not available for this time slot.',
+    'timeline_status_update_failed' => 'Could not update table status. Please try again.',
     'manage_bookings' => 'Manage Bookings',
     'create_new_booking' => 'Create New Booking',
     'manage_tables' => 'Manage Tables',

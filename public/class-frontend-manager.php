@@ -77,6 +77,10 @@ class RB_Frontend_Manager extends RB_Frontend_Base {
         add_action('wp_ajax_nopriv_rb_manager_toggle_table', array($this, 'handle_manager_toggle_table'));
         add_action('wp_ajax_rb_manager_delete_table', array($this, 'handle_manager_delete_table'));
         add_action('wp_ajax_nopriv_rb_manager_delete_table', array($this, 'handle_manager_delete_table'));
+        add_action('wp_ajax_rb_manager_get_timeline', array($this, 'handle_manager_get_timeline'));
+        add_action('wp_ajax_nopriv_rb_manager_get_timeline', array($this, 'handle_manager_get_timeline'));
+        add_action('wp_ajax_rb_manager_update_table_status', array($this, 'handle_manager_update_table_status'));
+        add_action('wp_ajax_nopriv_rb_manager_update_table_status', array($this, 'handle_manager_update_table_status'));
         add_action('wp_ajax_rb_manager_set_customer_vip', array($this, 'handle_manager_set_customer_vip'));
         add_action('wp_ajax_nopriv_rb_manager_set_customer_vip', array($this, 'handle_manager_set_customer_vip'));
         add_action('wp_ajax_rb_manager_set_customer_blacklist', array($this, 'handle_manager_set_customer_blacklist'));
@@ -275,7 +279,7 @@ class RB_Frontend_Manager extends RB_Frontend_Base {
 
         $location_settings = $rb_location ? $rb_location->get_settings($selected_location_id) : array();
         $section = isset($_GET['rb_section']) ? sanitize_key($_GET['rb_section']) : 'dashboard';
-        $allowed_sections = array('dashboard', 'create', 'tables', 'customers', 'settings');
+        $allowed_sections = array('dashboard', 'timeline', 'create', 'tables', 'customers', 'settings');
         if (!in_array($section, $allowed_sections, true)) {
             $section = 'dashboard';
         }
@@ -284,6 +288,7 @@ class RB_Frontend_Manager extends RB_Frontend_Base {
 
         $nav_items = array(
             'dashboard' => array('icon' => '📊', 'label' => $this->t('dashboard', __('Dashboard', 'restaurant-booking'))),
+            'timeline' => array('icon' => '🗓️', 'label' => $this->t('timeline', __('Timeline', 'restaurant-booking'))),
             'create' => array('icon' => '📝', 'label' => $this->t('create_booking', __('Create Booking', 'restaurant-booking'))),
             'tables' => array('icon' => '🍽️', 'label' => $this->t('manage_tables', __('Manage Tables', 'restaurant-booking'))),
             'customers' => array('icon' => '👥', 'label' => $this->t('customers', __('Customers', 'restaurant-booking'))),
@@ -364,6 +369,9 @@ class RB_Frontend_Manager extends RB_Frontend_Base {
             <?php
             $section_markup = '';
             switch ($section) {
+                case 'timeline':
+                    $section_markup = $this->render_section_timeline($locations, $selected_location_id);
+                    break;
                 case 'create':
                     $section_markup = $this->render_section_create_booking($location_settings, $selected_location_id, $active_location, $ajax_nonce);
                     break;
@@ -386,6 +394,8 @@ class RB_Frontend_Manager extends RB_Frontend_Base {
             $body_classes = array('rb-manager-body');
             if ($section === 'dashboard') {
                 $body_classes[] = 'rb-manager-body--dashboard';
+            } elseif ($section === 'timeline') {
+                $body_classes[] = 'rb-manager-body--timeline';
             }
             ?>
 
@@ -553,6 +563,16 @@ class RB_Frontend_Manager extends RB_Frontend_Base {
 
         $search_placeholder = $this->t('search_bookings_placeholder', __('Search bookings…', 'restaurant-booking'));
         $list_count_label = sprintf(__('Bookings (%d)', 'restaurant-booking'), count($bookings));
+
+        global $wpdb;
+        $tables = array();
+        if ($location_id) {
+            $tables_table = $wpdb->prefix . 'rb_tables';
+            $tables = $wpdb->get_results($wpdb->prepare(
+                "SELECT table_number, capacity FROM {$tables_table} WHERE location_id = %d ORDER BY table_number ASC",
+                $location_id
+            ));
+        }
 
         ob_start();
         ?>
@@ -881,6 +901,26 @@ class RB_Frontend_Manager extends RB_Frontend_Base {
                                 <input type="time" name="booking_time" required>
                             </label>
                             <label>
+                                <?php echo esc_html($this->t('table', __('Table', 'restaurant-booking'))); ?>
+                                <select name="table_number">
+                                    <option value=""><?php echo esc_html($this->t('no_table_assigned', __('No table assigned', 'restaurant-booking'))); ?></option>
+                                    <?php if (!empty($tables)) : ?>
+                                        <?php foreach ($tables as $table_option) :
+                                            $table_number_value = isset($table_option->table_number) ? (int) $table_option->table_number : 0;
+                                            $table_capacity_value = isset($table_option->capacity) ? (int) $table_option->capacity : 0;
+                                            $table_label = sprintf(
+                                                /* translators: 1: table number, 2: table capacity */
+                                                __('Table %1$s (up to %2$d guests)', 'restaurant-booking'),
+                                                '#' . $table_number_value,
+                                                $table_capacity_value
+                                            );
+                                            ?>
+                                            <option value="<?php echo esc_attr($table_number_value); ?>"><?php echo esc_html($table_label); ?></option>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </select>
+                            </label>
+                            <label>
                                 <?php echo esc_html($this->t('source', __('Source', 'restaurant-booking'))); ?>
                                 <select name="booking_source">
                                     <?php foreach ($source_options as $value => $label) : ?>
@@ -904,6 +944,117 @@ class RB_Frontend_Manager extends RB_Frontend_Base {
                         </div>
                     </form>
                     <div id="rb-manager-edit-feedback" class="rb-portal-result" hidden></div>
+                </div>
+            </div>
+        </div>
+        <?php
+        return ob_get_clean();
+    }
+
+    private function render_section_timeline($locations, $selected_location_id) {
+        if (empty($locations)) {
+            return '';
+        }
+
+        $location_lookup = array();
+        foreach ($locations as $location) {
+            $location_lookup[(int) $location['id']] = $location;
+        }
+
+        if (!$selected_location_id || !isset($location_lookup[$selected_location_id])) {
+            $first_location = reset($locations);
+            $selected_location_id = $first_location ? (int) $first_location['id'] : 0;
+        }
+
+        $current_location = isset($location_lookup[$selected_location_id]) ? $location_lookup[$selected_location_id] : array();
+
+        $date_param = isset($_GET['timeline_date']) ? sanitize_text_field(wp_unslash($_GET['timeline_date'])) : '';
+        $current_timestamp = current_time('timestamp');
+        $today = date_i18n('Y-m-d', $current_timestamp);
+        $selected_date = (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date_param)) ? $date_param : $today;
+
+        $summary_parts = array();
+        if (!empty($current_location['name'])) {
+            $summary_parts[] = $current_location['name'];
+        }
+        if (!empty($current_location['address'])) {
+            $summary_parts[] = $current_location['address'];
+        }
+        if (!empty($current_location['hotline'])) {
+            $summary_parts[] = '📞 ' . $current_location['hotline'];
+        }
+        $summary_text = implode(' · ', array_filter($summary_parts));
+
+        ob_start();
+        ?>
+        <div class="rb-manager-timeline">
+            <h3><?php echo esc_html($this->t('timeline_overview', __('Timeline overview', 'restaurant-booking'))); ?></h3>
+            <div
+                id="rb-timeline-root"
+                class="rb-timeline-wrap"
+                data-initial-date="<?php echo esc_attr($selected_date); ?>"
+                data-location-id="<?php echo esc_attr($selected_location_id); ?>"
+                data-auto-refresh="1"
+                data-ajax-action="rb_manager_get_timeline"
+                data-status-action="rb_manager_update_table_status"
+            >
+                <div class="rb-timeline-toolbar">
+                    <div class="rb-timeline-toolbar-group">
+                        <label for="rb-timeline-location"><?php esc_html_e('Location', 'restaurant-booking'); ?></label>
+                        <select id="rb-timeline-location" name="location_id">
+                            <?php foreach ($locations as $location) :
+                                $option_id = isset($location['id']) ? (int) $location['id'] : 0;
+                                ?>
+                                <option
+                                    value="<?php echo esc_attr($option_id); ?>"
+                                    <?php selected($selected_location_id, $option_id); ?>
+                                    data-name="<?php echo esc_attr(isset($location['name']) ? $location['name'] : ''); ?>"
+                                    data-address="<?php echo esc_attr(isset($location['address']) ? $location['address'] : ''); ?>"
+                                    data-hotline="<?php echo esc_attr(isset($location['hotline']) ? $location['hotline'] : ''); ?>"
+                                >
+                                    <?php echo esc_html(isset($location['name']) ? $location['name'] : $option_id); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="rb-timeline-toolbar-group rb-timeline-date-group">
+                        <button type="button" class="button" id="rb-timeline-prev-day" aria-label="<?php esc_attr_e('Previous day', 'restaurant-booking'); ?>">&larr;</button>
+                        <input type="date" id="rb-timeline-date" value="<?php echo esc_attr($selected_date); ?>" />
+                        <button type="button" class="button" id="rb-timeline-next-day" aria-label="<?php esc_attr_e('Next day', 'restaurant-booking'); ?>">&rarr;</button>
+                    </div>
+
+                    <div class="rb-timeline-toolbar-group rb-timeline-refresh-group">
+                        <label class="rb-timeline-toggle">
+                            <input type="checkbox" id="rb-timeline-auto-refresh" checked />
+                            <span><?php esc_html_e('Auto refresh (30s)', 'restaurant-booking'); ?></span>
+                        </label>
+                        <button type="button" class="button button-secondary" id="rb-timeline-refresh"><?php esc_html_e('Refresh', 'restaurant-booking'); ?></button>
+                    </div>
+                </div>
+
+                <div class="rb-timeline-meta">
+                    <div class="rb-timeline-location-summary" data-rb-timeline-summary><?php echo esc_html($summary_text); ?></div>
+                    <span id="rb-last-refreshed" class="rb-last-refreshed"></span>
+                </div>
+
+                <div id="rb-timeline-notices" class="rb-timeline-notices" aria-live="polite"></div>
+
+                <div id="rb-timeline-loading" class="rb-timeline-loading" role="status">
+                    <span class="spinner is-active" aria-hidden="true"></span>
+                    <span class="rb-timeline-loading-text"><?php esc_html_e('Loading timeline...', 'restaurant-booking'); ?></span>
+                </div>
+
+                <div id="rb-timeline-container" class="rb-timeline-container" data-slot-height="42"></div>
+
+                <div class="rb-timeline-legend">
+                    <h2><?php esc_html_e('Table status legend', 'restaurant-booking'); ?></h2>
+                    <ul>
+                        <li><span class="rb-legend-dot is-available"></span><?php esc_html_e('Available', 'restaurant-booking'); ?></li>
+                        <li><span class="rb-legend-dot is-occupied"></span><?php esc_html_e('Occupied', 'restaurant-booking'); ?></li>
+                        <li><span class="rb-legend-dot is-cleaning"></span><?php esc_html_e('Cleaning', 'restaurant-booking'); ?></li>
+                        <li><span class="rb-legend-dot is-reserved"></span><?php esc_html_e('Reserved', 'restaurant-booking'); ?></li>
+                    </ul>
                 </div>
             </div>
         </div>
@@ -2241,6 +2392,10 @@ class RB_Frontend_Manager extends RB_Frontend_Base {
         $booking_location = (int) $booking->location_id;
         $allowed_locations = $permissions['allowed_locations'];
 
+        $original_booking_time = isset($booking->booking_time) ? $booking->booking_time : '';
+        $checkin_time_for_check = !empty($booking->checkin_time) ? $booking->checkin_time : null;
+        $checkout_time_for_check = !empty($booking->checkout_time) ? $booking->checkout_time : null;
+
         if (!empty($allowed_locations) && !in_array($booking_location, $allowed_locations, true)) {
             wp_send_json_error(array('message' => __('You are not allowed to manage this location.', 'restaurant-booking')));
             wp_die();
@@ -2261,6 +2416,13 @@ class RB_Frontend_Manager extends RB_Frontend_Base {
         $booking_source = isset($_POST['booking_source']) ? sanitize_text_field(wp_unslash($_POST['booking_source'])) : 'portal';
         $special_requests = isset($_POST['special_requests']) ? sanitize_textarea_field(wp_unslash($_POST['special_requests'])) : '';
         $admin_notes = isset($_POST['admin_notes']) ? sanitize_textarea_field(wp_unslash($_POST['admin_notes'])) : '';
+        $table_number_input = isset($_POST['table_number']) ? wp_unslash($_POST['table_number']) : '';
+        $table_number = $table_number_input !== '' ? intval($table_number_input) : 0;
+
+        if ($booking_time !== $original_booking_time) {
+            $checkin_time_for_check = null;
+            $checkout_time_for_check = null;
+        }
 
         if (empty($customer_name) || empty($customer_phone) || empty($customer_email) || !$guest_count || empty($booking_date) || empty($booking_time)) {
             wp_send_json_error(array('message' => __('Please fill out all required fields.', 'restaurant-booking')));
@@ -2281,6 +2443,8 @@ class RB_Frontend_Manager extends RB_Frontend_Base {
             $booking_date,
             $booking_time,
             $guest_count,
+            $checkin_time_for_check,
+            $checkout_time_for_check,
             $booking_id,
             $booking_location
         );
@@ -2288,6 +2452,42 @@ class RB_Frontend_Manager extends RB_Frontend_Base {
         if (!$is_available) {
             wp_send_json_error(array('message' => __('This time slot is no longer available. Please choose a different time.', 'restaurant-booking')));
             wp_die();
+        }
+
+        if ($table_number > 0) {
+            global $wpdb;
+            $tables_table = $wpdb->prefix . 'rb_tables';
+            $table_row = $wpdb->get_row($wpdb->prepare(
+                "SELECT id, capacity FROM {$tables_table} WHERE location_id = %d AND table_number = %d",
+                $booking_location,
+                $table_number
+            ));
+
+            if (!$table_row) {
+                wp_send_json_error(array('message' => __('The selected table does not exist for this location.', 'restaurant-booking')));
+                wp_die();
+            }
+
+            if ((int) $table_row->capacity < $guest_count) {
+                wp_send_json_error(array('message' => __('The selected table cannot accommodate the number of guests.', 'restaurant-booking')));
+                wp_die();
+            }
+
+            $table_available = $rb_booking->is_table_available_for_booking(
+                $booking_location,
+                $table_number,
+                $booking_date,
+                $booking_time,
+                $guest_count,
+                $checkin_time_for_check,
+                $checkout_time_for_check,
+                $booking_id
+            );
+
+            if (!$table_available) {
+                wp_send_json_error(array('message' => __('The selected table is not available for this time slot.', 'restaurant-booking')));
+                wp_die();
+            }
         }
 
         $update_data = array(
@@ -2300,6 +2500,7 @@ class RB_Frontend_Manager extends RB_Frontend_Base {
             'booking_source' => $booking_source,
             'special_requests' => $special_requests,
             'admin_notes' => $admin_notes,
+            'table_number' => $table_number > 0 ? $table_number : null,
         );
 
         $updated = $rb_booking->update_booking($booking_id, $update_data);
@@ -2326,6 +2527,129 @@ class RB_Frontend_Manager extends RB_Frontend_Base {
         wp_send_json_success(array(
             'message' => __('Booking updated successfully.', 'restaurant-booking'),
             'booking' => $formatted,
+        ));
+        wp_die();
+    }
+
+    public function handle_manager_get_timeline() {
+        $permissions = $this->get_current_manager_permissions();
+
+        if (!$permissions) {
+            wp_send_json_error(array('message' => __('You are not allowed to perform this action.', 'restaurant-booking')));
+            wp_die();
+        }
+
+        if (!check_ajax_referer('rb_frontend_nonce', 'nonce', false)) {
+            wp_send_json_error(array('message' => __('Security check failed', 'restaurant-booking')));
+            wp_die();
+        }
+
+        $date = isset($_POST['date']) ? sanitize_text_field(wp_unslash($_POST['date'])) : '';
+        $location_id = isset($_POST['location_id']) ? intval($_POST['location_id']) : 0;
+
+        if (empty($date) || $location_id <= 0) {
+            wp_send_json_error(array('message' => __('Invalid request parameters.', 'restaurant-booking')));
+            wp_die();
+        }
+
+        if (!$this->manager_can_access_location($permissions, $location_id)) {
+            wp_send_json_error(array('message' => __('You are not allowed to manage this location.', 'restaurant-booking')));
+            wp_die();
+        }
+
+        $active_location = $this->get_permissions_active_location($permissions);
+        if ($active_location && $active_location !== $location_id) {
+            wp_send_json_error(array('message' => __('Please switch to the correct location before viewing this timeline.', 'restaurant-booking')));
+            wp_die();
+        }
+
+        if (!class_exists('RB_Booking')) {
+            require_once RB_PLUGIN_DIR . 'includes/class-booking.php';
+        }
+
+        global $rb_booking;
+        if (!$rb_booking) {
+            $rb_booking = new RB_Booking();
+        }
+
+        $timeline = $rb_booking->get_timeline_data($date, $location_id);
+
+        if (empty($timeline)) {
+            wp_send_json_error(array('message' => __('No timeline data found for the given request.', 'restaurant-booking')));
+            wp_die();
+        }
+
+        wp_send_json_success($timeline);
+        wp_die();
+    }
+
+    public function handle_manager_update_table_status() {
+        $permissions = $this->get_current_manager_permissions();
+
+        if (!$permissions) {
+            wp_send_json_error(array('message' => __('You are not allowed to perform this action.', 'restaurant-booking')));
+            wp_die();
+        }
+
+        if (!check_ajax_referer('rb_frontend_nonce', 'nonce', false)) {
+            wp_send_json_error(array('message' => __('Security check failed', 'restaurant-booking')));
+            wp_die();
+        }
+
+        $table_id = isset($_POST['table_id']) ? intval($_POST['table_id']) : 0;
+        $status = isset($_POST['status']) ? sanitize_text_field(wp_unslash($_POST['status'])) : '';
+        $booking_id = isset($_POST['booking_id']) ? intval($_POST['booking_id']) : 0;
+
+        $allowed_statuses = array('available', 'occupied', 'cleaning', 'reserved');
+
+        if ($table_id <= 0 || empty($status) || !in_array($status, $allowed_statuses, true)) {
+            wp_send_json_error(array('message' => __('Invalid request parameters.', 'restaurant-booking')));
+            wp_die();
+        }
+
+        global $wpdb;
+        $tables_table = $wpdb->prefix . 'rb_tables';
+        $table = $wpdb->get_row($wpdb->prepare(
+            "SELECT id, location_id FROM {$tables_table} WHERE id = %d",
+            $table_id
+        ));
+
+        if (!$table) {
+            wp_send_json_error(array('message' => __('The selected table does not exist for this location.', 'restaurant-booking')));
+            wp_die();
+        }
+
+        if (!$this->manager_can_access_location($permissions, (int) $table->location_id)) {
+            wp_send_json_error(array('message' => __('You are not allowed to manage this location.', 'restaurant-booking')));
+            wp_die();
+        }
+
+        $active_location = $this->get_permissions_active_location($permissions);
+        if ($active_location && (int) $table->location_id !== $active_location) {
+            wp_send_json_error(array('message' => __('Please switch to the correct location before updating table statuses.', 'restaurant-booking')));
+            wp_die();
+        }
+
+        if (!class_exists('RB_Booking')) {
+            require_once RB_PLUGIN_DIR . 'includes/class-booking.php';
+        }
+
+        global $rb_booking;
+        if (!$rb_booking) {
+            $rb_booking = new RB_Booking();
+        }
+
+        $updated = $rb_booking->update_table_status($table_id, $status, $booking_id > 0 ? $booking_id : null);
+
+        if (!$updated) {
+            wp_send_json_error(array('message' => __('Could not update table status. Please try again.', 'restaurant-booking')));
+            wp_die();
+        }
+
+        wp_send_json_success(array(
+            'message' => __('Table status updated successfully.', 'restaurant-booking'),
+            'table_id' => $table_id,
+            'status' => $status,
         ));
         wp_die();
     }

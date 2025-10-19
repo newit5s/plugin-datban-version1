@@ -260,6 +260,19 @@ function rb_frontend_enqueue_scripts() {
         wp_enqueue_script('rb-manager-gmail', RB_PLUGIN_URL . 'assets/js/manager-gmail.js', array('jquery', 'rb-frontend-js'), $gmail_script_version, true);
     }
 
+    $timeline_style_path = RB_PLUGIN_DIR . 'assets/css/timeline.css';
+    $timeline_script_path = RB_PLUGIN_DIR . 'assets/js/timeline-view.js';
+
+    if (file_exists($timeline_style_path)) {
+        $timeline_style_version = filemtime($timeline_style_path);
+        wp_enqueue_style('rb-timeline-css', RB_PLUGIN_URL . 'assets/css/timeline.css', array('rb-manager-gmail'), $timeline_style_version);
+    }
+
+    if (file_exists($timeline_script_path)) {
+        $timeline_script_version = filemtime($timeline_script_path);
+        wp_enqueue_script('rb-timeline-view', RB_PLUGIN_URL . 'assets/js/timeline-view.js', array('jquery'), $timeline_script_version, true);
+    }
+
     global $rb_location;
     if (!$rb_location) {
         require_once RB_PLUGIN_DIR . 'includes/class-location.php';
@@ -318,6 +331,56 @@ function rb_frontend_enqueue_scripts() {
         'booking_actions_label' => rb_t('booking_actions', __('Booking actions', 'restaurant-booking')),
         'customer_actions_label' => rb_t('customer_actions', __('Customer actions', 'restaurant-booking'))
     ));
+
+    if (wp_script_is('rb-timeline-view', 'enqueued')) {
+        $timeline_nonce = wp_create_nonce('rb_frontend_nonce');
+        $timeline_date_param = isset($_GET['timeline_date']) ? sanitize_text_field(wp_unslash($_GET['timeline_date'])) : '';
+        $timeline_current_timestamp = current_time('timestamp');
+        $timeline_default_date = date('Y-m-d', $timeline_current_timestamp);
+        $timeline_initial_date = (preg_match('/^\d{4}-\d{2}-\d{2}$/', $timeline_date_param)) ? $timeline_date_param : $timeline_default_date;
+        $timeline_location_id = isset($_GET['location_id']) ? intval($_GET['location_id']) : $default_location_id;
+        if ($timeline_location_id <= 0) {
+            $timeline_location_id = $default_location_id;
+        }
+
+        wp_localize_script('rb-timeline-view', 'rbTimelineViewData', array(
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'nonce' => $timeline_nonce,
+            'initialDate' => $timeline_initial_date,
+            'initialLocationId' => $timeline_location_id,
+            'autoRefresh' => true,
+            'refreshInterval' => 30000,
+            'ajaxAction' => 'rb_manager_get_timeline',
+            'statusAction' => 'rb_manager_update_table_status',
+            'lastUpdatedLabel' => esc_html__('Last updated:', 'restaurant-booking'),
+        ));
+
+        wp_localize_script('rb-timeline-view', 'rbTimelineViewL10n', array(
+            'timeLabel' => esc_html__('Time', 'restaurant-booking'),
+            'tableLabel' => esc_html__('Table', 'restaurant-booking'),
+            'guestsLabel' => esc_html__('guests', 'restaurant-booking'),
+            'statuses' => array(
+                'available' => esc_html__('Available', 'restaurant-booking'),
+                'occupied' => esc_html__('Occupied', 'restaurant-booking'),
+                'cleaning' => esc_html__('Cleaning', 'restaurant-booking'),
+                'reserved' => esc_html__('Reserved', 'restaurant-booking'),
+            ),
+            'messages' => array(
+                'loading' => esc_html__('Loading timeline...', 'restaurant-booking'),
+                'noTables' => esc_html__('No tables found for this location.', 'restaurant-booking'),
+                'noBookings' => esc_html__('No bookings for the selected time range.', 'restaurant-booking'),
+                'loadError' => esc_html__('Unable to load timeline data. Please try again.', 'restaurant-booking'),
+                'statusUpdated' => esc_html__('Table status updated.', 'restaurant-booking'),
+                'statusUpdateError' => esc_html__('Could not update table status. Please try again.', 'restaurant-booking'),
+            ),
+            'labels' => array(
+                'lastUpdatedLabel' => esc_html__('Last updated:', 'restaurant-booking'),
+            ),
+            'buttons' => array(
+                'refresh' => esc_html__('Refresh', 'restaurant-booking'),
+            ),
+        ));
+    }
 }
 
 /**

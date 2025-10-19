@@ -16,6 +16,7 @@
             this.$prevDay = this.$root.find('#rb-timeline-prev-day');
             this.$nextDay = this.$root.find('#rb-timeline-next-day');
             this.$lastRefreshed = this.$root.find('#rb-last-refreshed');
+            this.$summary = this.$root.find('[data-rb-timeline-summary]');
 
             this.ajaxUrl = options.ajaxUrl;
             this.nonce = options.nonce;
@@ -27,6 +28,8 @@
             this.labels = options.labels || {};
             this.messages = options.messages || {};
             this.statusLabels = options.statuses || {};
+            this.ajaxAction = options.ajaxAction || 'rb_get_timeline_data';
+            this.statusAction = options.statusAction || 'rb_update_table_status';
 
             this.intervalMinutes = 30;
             this.refreshHandle = null;
@@ -54,6 +57,7 @@
             }
 
             this.$autoRefreshToggle.prop('checked', !!this.autoRefresh);
+            this.updateLocationSummary();
 
             this.bindEvents();
             this.loadTimeline(true);
@@ -66,6 +70,7 @@
         bindEvents() {
             this.$locationSelect.on('change', () => {
                 this.currentLocationId = parseInt(this.$locationSelect.val(), 10) || 0;
+                this.updateLocationSummary();
                 this.loadTimeline();
             });
 
@@ -152,7 +157,7 @@
                 method: 'POST',
                 dataType: 'json',
                 data: {
-                    action: 'rb_get_timeline_data',
+                    action: this.ajaxAction || 'rb_get_timeline_data',
                     nonce: this.nonce,
                     date: this.currentDate,
                     location_id: this.currentLocationId
@@ -354,7 +359,7 @@
                 return;
             }
 
-            if (newStatus === previousStatus) {
+            if (newStatus === previousStatus || !this.statusAction) {
                 return;
             }
 
@@ -365,7 +370,7 @@
                 method: 'POST',
                 dataType: 'json',
                 data: {
-                    action: 'rb_update_table_status',
+                    action: this.statusAction || 'rb_update_table_status',
                     nonce: this.nonce,
                     table_id: tableId,
                     status: newStatus
@@ -535,6 +540,36 @@
         formatGuests(guestCount) {
             return guestCount + ' ' + (this.labels.guestsLabel || 'guests');
         }
+
+        updateLocationSummary() {
+            if (!this.$summary || !this.$summary.length || !this.$locationSelect || !this.$locationSelect.length) {
+                return;
+            }
+
+            const $option = this.$locationSelect.find('option:selected');
+            if (!$option.length) {
+                return;
+            }
+
+            const parts = [];
+            const name = $option.data('name') || $option.text();
+            const address = $option.data('address');
+            const hotline = $option.data('hotline');
+
+            if (name) {
+                parts.push(name);
+            }
+
+            if (address) {
+                parts.push(address);
+            }
+
+            if (hotline) {
+                parts.push('📞 ' + hotline);
+            }
+
+            this.$summary.text(parts.join(' · '));
+        }
     }
 
     $(document).ready(() => {
@@ -562,7 +597,9 @@
                 lastUpdatedLabel: runtime.lastUpdatedLabel || (l10n.labels ? l10n.labels.lastUpdatedLabel : 'Last updated:')
             },
             messages: l10n.messages || {},
-            statuses: l10n.statuses || {}
+            statuses: l10n.statuses || {},
+            ajaxAction: runtime.ajaxAction || $root.data('ajax-action') || 'rb_get_timeline_data',
+            statusAction: runtime.statusAction || $root.data('status-action') || 'rb_update_table_status'
         });
 
         function adminAjaxUrl() {

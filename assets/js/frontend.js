@@ -863,7 +863,7 @@
                 var phoneValue = booking.customer_phone ? '<a href="tel:' + escapeAttribute(booking.customer_phone) + '">' + escapeHtml(booking.customer_phone) + '</a>' : '—';
                 var emailValue = booking.customer_email ? '<a href="mailto:' + escapeAttribute(booking.customer_email) + '">' + escapeHtml(booking.customer_email) + '</a>' : '—';
                 var guestsValue = booking.guest_count ? escapeHtml(booking.guest_count) : '0';
-                var tableValue = booking.table_number ? escapeHtml(booking.table_number) : '—';
+                var tableValue = booking.table_number ? '#' + escapeHtml(booking.table_number) : '—';
                 var createdValue = booking.created_display ? escapeHtml(booking.created_display) : '';
                 var sourceValue = booking.source_label ? escapeHtml(booking.source_label) : escapeHtml(booking.booking_source || '');
 
@@ -1508,6 +1508,19 @@
                 editForm.find('[name="booking_date"]').val(item.data('bookingDate'));
                 editForm.find('[name="booking_time"]').val(item.data('bookingTime'));
                 editForm.find('[name="booking_source"]').val(item.data('bookingSource'));
+                var tableField = editForm.find('[name="table_number"]');
+                if (tableField.length) {
+                    var tableValue = item.data('tableNumber');
+                    if (tableValue === undefined || tableValue === null || tableValue === '') {
+                        tableField.val('');
+                    } else {
+                        var tableOption = tableField.find('option[value="' + tableValue + '"]');
+                        if (!tableOption.length) {
+                            tableField.append('<option value="' + tableValue + '">#' + tableValue + '</option>');
+                        }
+                        tableField.val(String(tableValue));
+                    }
+                }
                 editForm.find('[name="special_requests"]').val(item.data('specialRequests'));
                 editForm.find('[name="admin_notes"]').val(item.data('adminNotes'));
                 editForm.data('row', item);
