@@ -1,0 +1,265 @@
+🎯 TASK: Implement Timeline Feature - Phase 1-2 (Database & Backend)
+Plugin: Restaurant Booking Manager
+Version: 1.0.1
+
+📋 REQUIREMENTS:
+
+=== PHASE 1: DATABASE SCHEMA ENHANCEMENT ===
+
+File: includes/class-database.php
+
+1️⃣ Add new method: migrate_to_timeline_schema()
+   - Sẽ được gọi từ ensure_portal_schema()
+   
+2️⃣ Add columns to wp_rb_bookings table:
+   - checkin_time TIME NOT NULL (AFTER booking_time)
+   - checkout_time TIME NOT NULL (AFTER checkin_time)
+   - actual_checkin DATETIME NULL (AFTER checkout_time)
+   - actual_checkout DATETIME NULL (AFTER actual_checkin)
+   - cleanup_completed_at DATETIME NULL (AFTER actual_checkout)
+   
+3️⃣ Add columns to wp_rb_tables table:
+   - current_status ENUM('available','occupied','cleaning','reserved') DEFAULT 'available'
+   - status_updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+   - last_booking_id INT NULL
+   
+4️⃣ Add proper indexes:
+   - wp_rb_bookings: KEY checkin_checkout_index (location_id, booking_date, checkin_time, checkout_time)
+   - wp_rb_tables: KEY current_status_index (location_id, current_status)
+
+5️⃣ Safe migration for existing data:
+   - Nếu checkin_time/checkout_time NULL → set = booking_time
+   - checkout_time = booking_time + 2 hours (tính toán từ booking_time)
+   - Dùng $wpdb->get_var() để check column tồn tại trước khi add
+
+---
+
+=== PHASE 2: BACKEND LOGIC ENHANCEMENT ===
+
+File: includes/class-booking.php
+
+🔧 Add new methods:
+
+1️⃣ check_time_overlap($date, $checkin_time, $checkout_time, $location_id, $exclude_booking_id = null)
+   Kiểm tra xem thời gian check-in/out có overlap với booking khác + cleanup buffer (1 hour)
+   Return: boolean (true = có overlap)
+   
+   Logic:
+   - Lấy tất cả bookings ở location_id, ngày $date, status IN ('pending', 'confirmed')
+   - Loại trừ booking $exclude_booking_id nếu có
+   - Tính: actual_checkin = checkin_time - 15 phút (khách có thể sớm)
+           actual_checkout = checkout_time + 15 phút + 1 hour cleanup
+   - So sánh overlap với existing bookings
+   - Nếu có overlap → return true
+
+2️⃣ is_time_slot_available($date, $time, $guest_count, $checkin_time, $checkout_time, $exclude_booking_id, $location_id)
+   MODIFY existing method để handle timeline
+   
+   Validation Rules:
+   - checkout_time > checkin_time (required)
+   - Minimum duration: 1 hour
+   - Maximum duration: 6 hours
+   - Không overlap với bookings khác + 1h cleanup buffer
+   - Respect location working hours
+   
+   Logic:
+   - Nếu $checkin_time/$checkout_time không truyền → default = $time và $time + 2h
+   - Kiểm tra: check_time_overlap()
+   - Kiểm tra: available tables đủ capacity
+   - Kiểm tra: location working hours
+   Return: boolean
+
+3️⃣ get_timeline_data($date, $location_id)
+   Return structured array cho calendar grid view
+   
+   Structure:
+```php
+   return array(
+       'date' => '2024-01-15',
+       'location_id' => 1,
+       'time_slots' => array('09:00', '09:30', '10:00', ... '22:00'),
+       'tables' => array(
+           'table_1' => array(
+               'id' => 1,
+               'table_number' => 1,
+               'capacity' => 4,
+               'current_status' => 'available',
+               'bookings' => array(
+                   array(
+                       'booking_id' => 123,
+                       'customer_name' => 'John Doe',
+                       'phone' => '0123456789',
+                       'checkin_time' => '10:00',
+                       'checkout_time' => '12:00',
+                       'actual_checkin' => '09:45', // khách có thể sớm 15'
+                       'actual_checkout' => '13:00', // 12:00 + 15' + 1h cleanup
+                       'status' => 'confirmed',
+                       'guest_count' => 4,
+                       'booking_source' => 'website'
+                   )
+               )
+           )
+       )
+   );
+```
+   
+   Logic:
+   - Generate time_slots từ location opening/closing time (interval 30 phút)
+   - Lấy tất cả tables ở location
+   - Lấy tất cả bookings ở location, ngày $date
+   - Map bookings vào tables tương ứng
+   - Tính actual_checkin = checkin_time - 15'
+   - Tính actual_checkout = checkout_time + 15' + 1h cleanup
+   - Sort by checkin_time
+
+4️⃣ update_table_status($table_id, $status, $booking_id = null)
+   Update wp_rb_tables.current_status
+   Parameters:
+   - $table_id (int)
+   - $status (string): 'available', 'occupied', 'cleaning', 'reserved'
+   - $booking_id (int): optional, để track booking nào occupation
+   
+   Update fields:
+   - current_status = $status
+   - status_updated_at = NOW()
+   - last_booking_id = $booking_id (nếu có)
+   Return: boolean (success/fail)
+
+5️⃣ MODIFY create_booking() method:
+   Add parameters:
+   - $checkin_time (string, format: 'HH:MM')
+   - $checkout_time (string, format: 'HH:MM')
+   
+   Validation:
+   - Validate checkin < checkout
+   - Validate duration 1-6 hours
+   - Call is_time_slot_available() với checkin/checkout
+   
+   Store in booking:
+   - booking_time = $checkin_time (hoặc keep as-is, depend on your logic)
+   - checkin_time = $checkin_time
+   - checkout_time = $checkout_time
+   - actual_checkin = $checkin_time - 15 minutes
+   - actual_checkout = $checkout_time + 15 minutes + 1 hour cleanup
+
+6️⃣ MODIFY confirm_booking() method:
+   When booking confirmed → update table status
+   Logic:
+   - Get table_number từ booking
+   - Call update_table_status($table_id, 'reserved', $booking_id)
+
+7️⃣ Add new method: mark_checkin($booking_id, $actual_time = null)
+   Update booking.actual_checkin = $actual_time (or NOW())
+   Update table status = 'occupied'
+
+8️⃣ Add new method: mark_checkout($booking_id, $actual_time = null)
+   Update booking.actual_checkout = $actual_time (or NOW())
+   Update table status = 'cleaning'
+   Set cleanup_completed_at = NOW() + 1 hour (tự động)
+   
+   Sau 1h → auto update status = 'available'
+
+---
+
+🧪 TEST CASES (Phase 1-2):
+
+1. Database migration:
+   ✅ Columns được add thành công
+   ✅ Existing data được migrate (default values)
+   ✅ Indexes được tạo
+   
+2. check_time_overlap():
+   ✅ No overlap → return false
+   ✅ Overlap same slot → return true
+   ✅ Overlap with cleanup buffer → return true
+   ✅ Exclude booking_id works
+   
+3. is_time_slot_available():
+   ✅ Valid slot → return true
+   ✅ Too short duration (<1h) → return false
+   ✅ Too long duration (>6h) → return false
+   ✅ Overlap existing booking → return false
+   ✅ Checkout < checkin → return false
+   
+4. get_timeline_data():
+   ✅ Return correct structure
+   ✅ Time slots generated correctly
+   ✅ All tables included
+   ✅ Bookings mapped to correct tables
+   ✅ actual_checkin/checkout calculated correctly (±15' + 1h cleanup)
+   
+5. update_table_status():
+   ✅ Status updated
+   ✅ status_updated_at updated
+   ✅ last_booking_id saved
+   
+6. create_booking() with timeline:
+   ✅ Accept checkin/checkout params
+   ✅ Store values in DB
+   ✅ Validate duration
+   
+7. confirm_booking():
+   ✅ Table status changed to 'reserved'
+   ✅ last_booking_id set
+
+---
+
+⚠️ CRITICAL POINTS:
+
+✅ Backward compatibility:
+   - Existing bookings with NULL checkin/checkout → auto-populate with defaults
+   - Existing create_booking() calls → still work (optional checkin/checkout)
+   
+✅ Code standards:
+   - Follow existing class structure
+   - Use $wpdb->prepare() for security
+   - Add inline comments (tiếng Việt)
+   - Follow naming convention từ codebase
+   
+✅ No breaking changes:
+   - existing methods signature → optional params only
+   - existing data → safe migration
+   
+✅ Performance:
+   - Indexes on frequently queried columns
+   - Efficient queries (avoid N+1)
+   - Use proper WHERE clauses
+
+---
+
+📦 DELIVERABLES (Phase 1-2):
+
+1. Database schema updated với migration function
+2. RB_Booking class with 8 new methods
+3. All methods fully functional & tested
+4. No breaking changes
+5. Code matches existing style & standards
+6. Ready for Phase 3-4 (AJAX integration)
+
+---
+
+🚀 PRIORITY:
+
+1. Database migration (must work)
+2. check_time_overlap() (core logic)
+3. is_time_slot_available() (core logic)
+4. get_timeline_data() (data structure)
+5. update_table_status() (status management)
+6. Modify create_booking() + confirm_booking()
+7. Mark checkin/checkout methods
+8. Test all methods
+
+---
+
+💡 IMPLEMENTATION NOTES:
+
+- Tất cả time calculations phải xử lý timezone đúng
+- Dùng 24-hour format (HH:MM)
+- Cleanup time luôn = 1 hour (fixed)
+- actual_checkin = checkin_time - 15 minutes
+- actual_checkout = checkout_time + 15 minutes + 1 hour cleanup
+- Tất cả queries dùng $wpdb->prepare()
+```
+
+---
+
