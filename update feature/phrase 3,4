@@ -1,0 +1,617 @@
+## 📌 PROMPT PHASE 3-4: AJAX + Admin UI
+```
+🎯 TASK: Implement Timeline Feature - Phase 3-4 (AJAX & Admin UI)
+Plugin: Restaurant Booking Manager
+Requires: Phase 1-2 completed & tested
+
+📋 REQUIREMENTS:
+
+=== PHASE 3: AJAX ENDPOINTS ===
+
+File: includes/class-ajax.php
+
+Add 3 new AJAX endpoints:
+
+1️⃣ wp_ajax_rb_get_timeline_data (hoặc wp_ajax_nopriv_rb_get_timeline_data cho frontend sau)
+   
+   Handler:
+```php
+   public function get_timeline_data() {
+       // Verify nonce từ $_POST['nonce']
+       // Get $date, $location_id từ $_POST
+       // Call RB_Booking::get_timeline_data($date, $location_id)
+       // Return wp_send_json_success($timeline_data)
+   }
+```
+   
+   Nonce: 'rb_admin_nonce' (reuse existing)
+   Params: date (string YYYY-MM-DD), location_id (int)
+   Response: JSON với timeline structure từ Phase 2
+
+2️⃣ wp_ajax_rb_update_table_status
+   
+   Handler:
+```php
+   public function update_table_status() {
+       // Verify nonce
+       // Get $table_id, $status, $booking_id từ $_POST
+       // Validate $status IN ('available','occupied','cleaning','reserved')
+       // Call RB_Booking::update_table_status()
+       // Return success/error response
+   }
+```
+   
+   Nonce: 'rb_admin_nonce'
+   Params: table_id (int), status (string), booking_id (int, optional)
+   Response: { success: true, message: "..." }
+
+3️⃣ wp_ajax_rb_check_availability_extended (modify/add)
+   
+   Handler:
+```php
+   public function check_availability_extended() {
+       // Verify nonce
+       // Get date, checkin_time, checkout_time, guest_count, location_id từ $_POST
+       // Call is_time_slot_available()
+       // Return: available (true/false), message, available_tables_count
+   }
+```
+   
+   Nonce: 'rb_frontend_nonce' (hoặc rb_admin_nonce, reuse existing)
+   Params: date, checkin_time, checkout_time, guest_count, location_id
+   Response: { success: true, available: true/false, message: "...", available_count: 5 }
+
+---
+
+=== PHASE 4: ADMIN UI - TIMELINE VIEW ===
+
+File: admin/class-admin.php
+
+🔧 Add methods:
+
+1️⃣ add_admin_menu() - ADD submenu:
+```php
+   add_submenu_page(
+       'restaurant-booking',
+       'Timeline View',
+       '📊 Timeline',
+       'manage_options',
+       'rb-timeline',
+       array($this, 'display_timeline_page')
+   );
+```
+
+2️⃣ NEW method: display_timeline_page()
+   
+   Render:
+   - Page title: "📊 Timeline View - Restaurant Booking"
+   - Language switcher (top right)
+   - Location selector dropdown
+   - Date navigation (prev/next day + date picker)
+   - Auto-refresh toggle (30 seconds)
+   - Manual refresh button
+   - Timeline grid container
+   - Table status legend
+   
+   Initial Load:
+   - Default location = first location từ DB
+   - Default date = today
+   - AJAX call: get_timeline_data()
+   - Render timeline grid
+   
+   Grid Structure (HTML):
+```html
+   <div class="rb-timeline-container">
+       <table class="rb-timeline-table">
+           <thead>
+               <tr>
+                   <th class="rb-time-column">Giờ</th>
+                   <th class="rb-table-column" data-table-id="1">Bàn 1 (4 chỗ)</th>
+                   <th class="rb-table-column" data-table-id="2">Bàn 2 (4 chỗ)</th>
+                   ...
+               </tr>
+           </thead>
+           <tbody>
+               <tr class="rb-time-row" data-time="09:00">
+                   <td class="rb-time-cell">09:00</td>
+                   <td class="rb-slot" data-table-id="1">
+                       <!-- Booking cell or empty -->
+                   </td>
+                   <td class="rb-slot" data-table-id="2">
+                       <!-- Booking cell or empty -->
+                   </td>
+               </tr>
+               ...
+           </tbody>
+       </table>
+   </div>
+```
+   
+   Booking Cell Content:
+```html
+   <div class="rb-booking-cell" 
+        data-booking-id="123" 
+        data-table-id="1"
+        style="height: Xpx; background: Ycolor;">
+       <div class="rb-booking-header">
+           <strong>John Doe</strong>
+           <span class="rb-status-badge">confirmed</span>
+       </div>
+       <div class="rb-booking-info">
+           10:00 - 12:00 (4 guests)
+       </div>
+       <div class="rb-booking-actions">
+           <button class="rb-checkin-btn">Check-in</button>
+           <button class="rb-checkout-btn">Check-out</button>
+       </div>
+   </div>
+```
+
+3️⃣ Timeline Grid Rendering Logic:
+   
+   Calculate cell height:
+   - Duration (hours) × cell_height_per_hour (60px)
+   - Min height: 30px (for visual)
+   - Position: (checkin_time - start_time) × 60px
+   
+   Color coding:
+   - available: #4CAF50 (green)
+   - occupied: #FF5722 (orange/red)
+   - cleaning: #FFC107 (yellow)
+   - reserved: #2196F3 (blue)
+   - pending: #FFB74D (light orange)
+   
+   Status badges:
+   - confirmed: green
+   - pending: orange
+   - cancelled: red
+   - completed: grey
+
+---
+
+=== PHASE 4B: INLINE ACTIONS ===
+
+Add methods for inline actions:
+
+1️⃣ Handle check-in click:
+   - Show modal: "Check-in at HH:MM?"
+   - Option: actual time (default now, or custom)
+   - AJAX: mark_checkin($booking_id)
+   - Update: table status → 'occupied'
+   - Refresh timeline
+
+2️⃣ Handle check-out click:
+   - Show modal: "Check-out at HH:MM?"
+   - AJAX: mark_checkout($booking_id)
+   - Update: table status → 'cleaning'
+   - Show: "Table will be ready at HH:MM (1h cleanup)"
+   - Refresh timeline
+
+3️⃣ Handle booking cell click:
+   - Show popup: booking details
+   - Options: Edit / Check-in / Check-out / Cancel / Delete
+   - AJAX for each action
+   - Refresh timeline
+
+---
+
+=== PHASE 4C: AUTO-REFRESH & CONTROLS ===
+
+Add JavaScript functionality:
+
+1️⃣ Auto-refresh:
+   - Checkbox: "Auto-refresh every 30 seconds"
+   - When enabled: setInterval(function() { loadTimeline(); }, 30000)
+   - When disabled: clearInterval()
+   - Update last refreshed time
+
+2️⃣ Manual refresh:
+   - Button: "🔄 Refresh"
+   - AJAX: get_timeline_data()
+   - Update timeline grid
+   - Show: "Last updated: HH:MM:SS"
+
+3️⃣ Date navigation:
+   - Prev button: date - 1 day
+   - Next button: date + 1 day
+   - Date picker: select specific date
+   - Each change: reload timeline
+
+4️⃣ Location selector:
+   - Dropdown: list all locations
+   - Change: reload timeline for selected location
+
+---
+
+=== PHASE 4D: DRAG-AND-DROP (OPTIONAL but required) ===
+
+Add drag-and-drop for table reassignment:
+
+1️⃣ Make booking cells draggable:
+   - draggable="true"
+   - On dragstart: store booking_id
+   - Show: visual feedback (opacity, outline)
+
+2️⃣ Make table columns droppable:
+   - ondrop: get target table_id
+   - Validate: new table có đủ capacity không?
+   - AJAX: reassign booking to new table
+   - Success: update cell position
+   - Error: show alert
+
+3️⃣ Validation:
+   - Khách không thể drag vào slot có overlap
+   - Khách không thể drag vào bàn quá nhỏ
+   - Chỉ admin có thể drag
+
+---
+
+📌 STYLING & CSS
+
+File: assets/css/timeline.css (new file)
+```css
+/* Timeline container */
+.rb-timeline-container {
+    overflow-x: auto;
+    background: white;
+    border: 1px solid #ccd0d4;
+    border-radius: 3px;
+    margin: 20px 0;
+}
+
+/* Timeline table */
+.rb-timeline-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.rb-timeline-table th,
+.rb-timeline-table td {
+    border: 1px solid #eee;
+    padding: 0;
+    height: 60px; /* Per 30-min slot */
+}
+
+.rb-time-column {
+    width: 60px;
+    background: #f8f9fa;
+    font-weight: 600;
+    text-align: center;
+    position: sticky;
+    left: 0;
+    z-index: 10;
+}
+
+.rb-table-column {
+    background: #f0f6fc;
+    font-weight: 600;
+    text-align: center;
+    min-width: 150px;
+    position: relative;
+}
+
+/* Booking cell */
+.rb-booking-cell {
+    padding: 4px;
+    border-radius: 3px;
+    cursor: pointer;
+    position: absolute;
+    left: 1px;
+    right: 1px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    transition: all 0.2s ease;
+    draggable: true;
+}
+
+.rb-booking-cell:hover {
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    transform: scale(1.02);
+    z-index: 5;
+}
+
+.rb-booking-header {
+    font-weight: 600;
+    font-size: 11px;
+    margin-bottom: 2px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.rb-status-badge {
+    padding: 1px 4px;
+    border-radius: 2px;
+    font-size: 9px;
+    background: rgba(255,255,255,0.3);
+    color: white;
+}
+
+.rb-booking-info {
+    font-size: 10px;
+    margin-bottom: 3px;
+    color: rgba(255,255,255,0.9);
+}
+
+.rb-booking-actions {
+    display: flex;
+    gap: 2px;
+}
+
+.rb-booking-actions button {
+    flex: 1;
+    padding: 2px 4px;
+    font-size: 9px;
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.rb-booking-actions button:hover {
+    background: rgba(255,255,255,0.4);
+}
+
+/* Status colors */
+.rb-status-available {
+    background: #4CAF50 !important;
+}
+
+.rb-status-occupied {
+    background: #FF5722 !important;
+}
+
+.rb-status-cleaning {
+    background: #FFC107 !important;
+    color: #333 !important;
+}
+
+.rb-status-reserved {
+    background: #2196F3 !important;
+}
+
+.rb-status-pending {
+    background: #FFB74D !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .rb-timeline-table th,
+    .rb-timeline-table td {
+        height: 80px;
+    }
+    
+    .rb-booking-header {
+        font-size: 10px;
+    }
+    
+    .rb-booking-info {
+        font-size: 9px;
+    }
+}
+```
+
+---
+
+📌 JAVASCRIPT FILE
+
+File: assets/js/timeline-view.js (new file)
+```javascript
+class RBTimelineView {
+    constructor(config) {
+        this.ajaxUrl = config.ajaxUrl;
+        this.nonce = config.nonce;
+        this.currentDate = config.date || new Date().toISOString().split('T')[0];
+        this.locationId = config.locationId || 1;
+        this.autoRefreshInterval = null;
+        this.cellHeightPerHour = 60; // 60px per 30min = 120px per hour
+        
+        this.init();
+    }
+    
+    init() {
+        this.bindEvents();
+        this.loadTimeline();
+    }
+    
+    bindEvents() {
+        // Date navigation
+        jQuery('#rb-prev-day').on('click', () => this.changeDate(-1));
+        jQuery('#rb-next-day').on('click', () => this.changeDate(1));
+        jQuery('#rb-date-picker').on('change', (e) => {
+            this.currentDate = e.target.value;
+            this.loadTimeline();
+        });
+        
+        // Location selector
+        jQuery('#rb-timeline-location').on('change', (e) => {
+            this.locationId = parseInt(e.target.value);
+            this.loadTimeline();
+        });
+        
+        // Auto-refresh
+        jQuery('#rb-auto-refresh').on('change', (e) => {
+            if (e.target.checked) {
+                this.startAutoRefresh();
+            } else {
+                this.stopAutoRefresh();
+            }
+        });
+        
+        // Manual refresh
+        jQuery('#rb-manual-refresh').on('click', () => this.loadTimeline());
+        
+        // Drag-and-drop
+        jQuery(document).on('dragstart', '.rb-booking-cell', (e) => {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('bookingId', jQuery(e.target).closest('.rb-booking-cell').data('booking-id'));
+        });
+        
+        jQuery(document).on('dragover', '.rb-slot', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            jQuery(e.currentTarget).addClass('rb-drag-over');
+        });
+        
+        jQuery(document).on('dragleave', '.rb-slot', (e) => {
+            jQuery(e.currentTarget).removeClass('rb-drag-over');
+        });
+        
+        jQuery(document).on('drop', '.rb-slot', (e) => {
+            e.preventDefault();
+            jQuery(e.currentTarget).removeClass('rb-drag-over');
+            
+            const bookingId = e.dataTransfer.getData('bookingId');
+            const newTableId = jQuery(e.currentTarget).data('table-id');
+            this.reassignBooking(bookingId, newTableId);
+        });
+    }
+    
+    loadTimeline() {
+        jQuery.ajax({
+            url: this.ajaxUrl,
+            type: 'POST',
+            data: {
+                action: 'rb_get_timeline_data',
+                date: this.currentDate,
+                location_id: this.locationId,
+                nonce: this.nonce
+            },
+            success: (response) => {
+                if (response.success) {
+                    this.renderTimeline(response.data);
+                    this.updateLastRefreshed();
+                }
+            }
+        });
+    }
+    
+    renderTimeline(data) {
+        // Generate HTML grid
+        // Calculate positions & heights
+        // Render booking cells
+        // Bind inline actions
+    }
+    
+    changeDate(days) {
+        const date = new Date(this.currentDate);
+        date.setDate(date.getDate() + days);
+        this.currentDate = date.toISOString().split('T')[0];
+        this.loadTimeline();
+    }
+    
+    startAutoRefresh() {
+        this.autoRefreshInterval = setInterval(() => this.loadTimeline(), 30000);
+    }
+    
+    stopAutoRefresh() {
+        clearInterval(this.autoRefreshInterval);
+    }
+    
+    reassignBooking(bookingId, newTableId) {
+        // Validate & AJAX reassign
+        // Update timeline
+    }
+    
+    updateLastRefreshed() {
+        const time = new Date().toLocaleTimeString();
+        jQuery('#rb-last-refreshed').text(`Last updated: ${time}`);
+    }
+}
+
+// Initialize on document ready
+jQuery(document).ready(function() {
+    new RBTimelineView({
+        ajaxUrl: rbAjax.ajax_url,
+        nonce: rbAjax.nonce,
+        date: new Date().toISOString().split('T')[0],
+        locationId: jQuery('#rb-timeline-location').val()
+    });
+});
+```
+
+---
+
+🧪 TEST CASES (Phase 3-4):
+
+1. AJAX endpoints:
+   ✅ get_timeline_data returns correct structure
+   ✅ update_table_status updates DB
+   ✅ Nonce verification works
+   ✅ Error handling for invalid params
+   
+2. Admin page:
+   ✅ Page loads without errors
+   ✅ Timeline grid renders correctly
+   ✅ Location selector works
+   ✅ Date navigation works
+   ✅ Booking cells positioned correctly
+   ✅ Colors match status
+   
+3. Interactive features:
+   ✅ Check-in/out buttons work
+   ✅ Auto-refresh on/off
+   ✅ Manual refresh updates timeline
+   ✅ Drag-and-drop works
+   ✅ Modal popups display correctly
+   
+4. Responsive design:
+   ✅ Mobile: scrollable grid
+   ✅ Tablet: proper layout
+   ✅ Desktop: full timeline
+   
+5. Performance:
+   ✅ AJAX calls complete < 1s
+   ✅ Auto-refresh doesn't block UI
+   ✅ Timeline renders smoothly
+
+---
+
+⚠️ CRITICAL POINTS:
+
+✅ Security:
+   - Nonce verification on all AJAX
+   - current_user_can('manage_options')
+   - Input sanitization
+   
+✅ Performance:
+   - Efficient DOM manipulation
+   - Debounce drag-and-drop
+   - Cache timeline data where possible
+   
+✅ UX:
+   - Loading indicators
+   - Error messages clear
+   - Keyboard shortcuts (optional)
+   - Mobile-friendly
+
+---
+
+📦 DELIVERABLES (Phase 3-4):
+
+1. 3 new AJAX endpoints fully functional
+2. Admin timeline page with all controls
+3. Timeline grid rendering correctly
+4. Drag-and-drop working
+5. Auto-refresh & manual refresh working
+6. Custom styling (CSS + responsive)
+7. JavaScript class well-structured
+8. All features tested & working
+9. No breaking changes
+10. Ready for Phase 5 (Frontend + Translations)
+
+---
+
+🚀 IMPLEMENTATION PRIORITY:
+
+1. Add AJAX endpoints (Phase 3)
+2. Create admin page structure (Phase 4)
+3. Render timeline grid correctly
+4. Add inline actions (check-in/out)
+5. Add drag-and-drop
+6. Add auto-refresh
+7. Style & responsive design
+8. Test all features
