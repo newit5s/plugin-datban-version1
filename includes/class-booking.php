@@ -22,6 +22,10 @@ class RB_Booking {
         global $wpdb;
         $this->wpdb = $wpdb;
         $this->timezone = $this->determine_timezone();
+
+        if (!has_action('rb_mark_table_available', array($this, 'handle_table_cleanup_complete'))) {
+            add_action('rb_mark_table_available', array($this, 'handle_table_cleanup_complete'));
+        }
     }
     
     public function get_booking($booking_id) {
@@ -796,6 +800,14 @@ class RB_Booking {
             array('%d')
         );
 
+        if ($updated !== false) {
+            if ('cleaning' === $status) {
+                $this->schedule_table_cleanup_completion($table_id, $booking_id);
+            } else {
+                $this->clear_table_cleanup_schedule($table_id);
+            }
+        }
+
         if ($updated !== false && $booking_id === null) {
             $this->wpdb->query($this->wpdb->prepare(
                 "UPDATE {$table_name} SET last_booking_id = NULL WHERE id = %d",
@@ -865,6 +877,78 @@ class RB_Booking {
         }
 
         return true;
+    }
+
+    public function handle_table_cleanup_complete($table_id) {
+        $table_id = (int) $table_id;
+        if ($table_id <= 0) {
+            return;
+        }
+
+        $table_name = $this->wpdb->prefix . 'rb_tables';
+        $table = $this->wpdb->get_row($this->wpdb->prepare(
+            "SELECT current_status FROM {$table_name} WHERE id = %d",
+            $table_id
+        ));
+
+        if (!$table || 'cleaning' !== $table->current_status) {
+            return;
+        }
+
+        $this->update_table_status($table_id, 'available');
+    }
+
+    private function schedule_table_cleanup_completion($table_id, $booking_id = null) {
+        if (!function_exists('wp_next_scheduled') || !function_exists('wp_schedule_single_event') || !function_exists('wp_unschedule_event')) {
+            return;
+        }
+
+        $table_id = (int) $table_id;
+        if ($table_id <= 0) {
+            return;
+        }
+
+        $schedule_timestamp = current_time('timestamp', true) + (self::CLEANUP_BUFFER_MINUTES * MINUTE_IN_SECONDS);
+
+        if ($booking_id) {
+            $booking = $this->get_booking($booking_id);
+            if ($booking && !empty($booking->cleanup_completed_at)) {
+                $parsed = $this->parse_datetime_value($booking->cleanup_completed_at);
+                if ($parsed) {
+                    $schedule_timestamp = $parsed;
+                }
+            }
+        }
+
+        $now = current_time('timestamp', true);
+        if ($schedule_timestamp <= $now) {
+            $schedule_timestamp = $now + MINUTE_IN_SECONDS;
+        }
+
+        $args = array($table_id);
+        $existing = wp_next_scheduled('rb_mark_table_available', $args);
+        if ($existing) {
+            wp_unschedule_event($existing, 'rb_mark_table_available', $args);
+        }
+
+        wp_schedule_single_event($schedule_timestamp, 'rb_mark_table_available', $args);
+    }
+
+    private function clear_table_cleanup_schedule($table_id) {
+        if (!function_exists('wp_next_scheduled') || !function_exists('wp_unschedule_event')) {
+            return;
+        }
+
+        $table_id = (int) $table_id;
+        if ($table_id <= 0) {
+            return;
+        }
+
+        $args = array($table_id);
+        $existing = wp_next_scheduled('rb_mark_table_available', $args);
+        if ($existing) {
+            wp_unschedule_event($existing, 'rb_mark_table_available', $args);
+        }
     }
 
     private function get_tables_for_time_range($date, $location_id, $guest_count, $start_timestamp, $end_timestamp, $exclude_booking_id = null) {
