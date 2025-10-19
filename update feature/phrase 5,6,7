@@ -1,0 +1,1478 @@
+🎯 TASK: Implement Timeline Feature - Phase 5-6-7 (Frontend & Finalization)
+Plugin: Restaurant Booking Manager
+Requires: Phase 1-4 completed & tested ✅
+
+📋 REQUIREMENTS:
+
+=== PHASE 5: FRONTEND BOOKING FORM ENHANCEMENT ===
+
+File: public/class-frontend.php (hoặc tạo public/class-timeline-booking.php)
+
+🔧 Add/Modify methods:
+
+1️⃣ MODIFY: render_booking_form() method
+   
+   Add new section trước "Check Availability" button:
+   
+   HTML Structure:
+```html
+   <div class="rb-time-selection-section">
+       <h3>⏰ Chọn Thời Gian Đặt Bàn</h3>
+       
+       <div class="rb-form-row">
+           <label for="rb-checkin-time">
+               🕐 Giờ Nhận Bàn (Check-in) *
+           </label>
+           <select id="rb-checkin-time" name="checkin_time" required>
+               <option value="">-- Chọn giờ --</option>
+               <!-- Populated by JS based on location working hours -->
+           </select>
+           <small class="rb-hint">Khách có thể tới sớm/muộn 15 phút</small>
+       </div>
+       
+       <div class="rb-form-row">
+           <label for="rb-duration">
+               ⏱️ Thời Gian Ở Lại *
+           </label>
+           <select id="rb-duration" name="duration" required>
+               <option value="">-- Chọn thời lượng --</option>
+               <option value="1">1 giờ</option>
+               <option value="1.5">1.5 giờ</option>
+               <option value="2">2 giờ (Khuyên dùng)</option>
+               <option value="2.5">2.5 giờ</option>
+               <option value="3">3 giờ</option>
+               <option value="3.5">3.5 giờ</option>
+               <option value="4">4 giờ</option>
+               <option value="5">5 giờ</option>
+               <option value="6">6 giờ</option>
+           </select>
+       </div>
+       
+       <div class="rb-time-display">
+           <p>
+               <strong>📋 Thống kê:</strong><br>
+               Giờ vào: <span id="rb-display-checkin">--:--</span><br>
+               Giờ ra: <span id="rb-display-checkout">--:--</span><br>
+               Thực tế sẽ sáng bàn lúc: <span id="rb-display-cleanup">--:--</span>
+           </p>
+       </div>
+   </div>
+```
+
+2️⃣ Add new method: get_location_time_slots()
+   
+   Logic:
+```php
+   public function get_location_time_slots($location_id) {
+       global $rb_location;
+       
+       if (!$rb_location) {
+           require_once RB_PLUGIN_DIR . 'includes/class-location.php';
+           $rb_location = new RB_Location();
+       }
+       
+       $settings = $rb_location->get_settings($location_id);
+       
+       // Generate time slots based on location settings
+       // Return: array('09:00', '09:30', '10:00', ...)
+   }
+```
+
+3️⃣ Add new AJAX handler (hoặc add vào includes/class-ajax.php):
+   
+   Handler name: wp_ajax_rb_get_checkout_time
+   
+   Purpose: Calculate checkout_time based on checkin_time + duration
+   
+   Logic:
+```php
+   public function get_checkout_time() {
+       check_ajax_referer('rb_frontend_nonce', 'nonce');
+       
+       $checkin_time = sanitize_text_field($_POST['checkin_time']);
+       $duration = floatval($_POST['duration']);
+       
+       // Convert time to minutes
+       list($h, $m) = explode(':', $checkin_time);
+       $minutes = ($h * 60) + $m + ($duration * 60);
+       
+       // Convert back to HH:MM
+       $checkout_hour = floor($minutes / 60);
+       $checkout_min = $minutes % 60;
+       $checkout_time = sprintf('%02d:%02d', $checkout_hour, $checkout_min);
+       
+       // Calculate cleanup end time (checkout + 15' + 1h)
+       $cleanup_end = date('H:i', 
+           strtotime($checkout_time) + (15 * 60) + (60 * 60)
+       );
+       
+       wp_send_json_success(array(
+           'checkout_time' => $checkout_time,
+           'cleanup_end' => $cleanup_end
+       ));
+   }
+```
+
+4️⃣ MODIFY: check_availability() AJAX method
+   
+   Add parameters:
+   - checkin_time (string HH:MM)
+   - checkout_time (string HH:MM)
+   - duration (float)
+   
+   Call: is_time_slot_available() with checkin/checkout
+   
+   Response must include:
+```php
+   {
+       'available': true/false,
+       'message': '...',
+       'available_tables': 5,
+       'checkin_time': '10:00',
+       'checkout_time': '12:00',
+       'cleanup_time': '13:15'
+   }
+```
+
+5️⃣ Add new method: get_alternative_times()
+   
+   Purpose: Suggest alternative times if selected slot unavailable
+   
+   Logic:
+```php
+   public function get_alternative_times($location_id, $date, $checkin_time, $duration, $guest_count) {
+       global $rb_booking;
+       
+       // Try ±30min, ±1hour, ±1.5hour
+       $offsets = [-90, -60, -30, 30, 60, 90]; // minutes
+       $alternatives = [];
+       
+       foreach ($offsets as $offset) {
+           $alt_checkin = date('H:i', 
+               strtotime($checkin_time) + ($offset * 60)
+           );
+           $alt_checkout = date('H:i',
+               strtotime($alt_checkin) + ($duration * 3600)
+           );
+           
+           if ($rb_booking->is_time_slot_available(
+               $date, $alt_checkin, $alt_checkout, 
+               $guest_count, null, $location_id
+           )) {
+               $alternatives[] = [
+                   'checkin' => $alt_checkin,
+                   'checkout' => $alt_checkout,
+                   'diff_minutes' => $offset
+               ];
+           }
+           
+           if (count($alternatives) >= 2) break;
+       }
+       
+       return $alternatives;
+   }
+```
+
+6️⃣ MODIFY: create_booking() method
+   
+   Add parameters:
+   - $checkin_time (string)
+   - $checkout_time (string)
+   
+   Pass to RB_Booking::create_booking():
+```php
+   $booking_data = array(
+       // ... existing fields ...
+       'checkin_time' => $checkin_time,
+       'checkout_time' => $checkout_time,
+       // ... rest ...
+   );
+```
+
+---
+
+=== PHASE 5B: FRONTEND JAVASCRIPT ===
+
+File: assets/js/timeline-booking.js (new file)
+```javascript
+class RBTimelineBooking {
+    constructor(config) {
+        this.ajaxUrl = config.ajaxUrl;
+        this.nonce = config.nonce;
+        this.locations = config.locations || [];
+        
+        this.init();
+    }
+    
+    init() {
+        this.populateTimeSlots();
+        this.bindEvents();
+    }
+    
+    bindEvents() {
+        // Location change
+        jQuery('#rb-location').on('change', () => {
+            this.populateTimeSlots();
+            this.clearTimeDisplay();
+        });
+        
+        // Check-in time change
+        jQuery('#rb-checkin-time').on('change', () => {
+            this.updateCheckoutAndCleanup();
+        });
+        
+        // Duration change
+        jQuery('#rb-duration').on('change', () => {
+            this.updateCheckoutAndCleanup();
+        });
+        
+        // Check availability button
+        jQuery('#rb-check-availability').on('click', (e) => {
+            e.preventDefault();
+            this.checkAvailability();
+        });
+    }
+    
+    populateTimeSlots() {
+        const locationId = jQuery('#rb-location').val();
+        const location = this.locations.find(l => l.id == locationId);
+        
+        if (!location) return;
+        
+        const slots = this.generateTimeSlots(
+            location.opening_time,
+            location.closing_time,
+            location.time_slot_interval
+        );
+        
+        const $select = jQuery('#rb-checkin-time');
+        $select.empty();
+        $select.append('<option value="">-- Chọn giờ --</option>');
+        
+        slots.forEach(slot => {
+            $select.append(`<option value="${slot}">${slot}</option>`);
+        });
+    }
+    
+    generateTimeSlots(start, end, interval) {
+        const slots = [];
+        let current = this.timeToMinutes(start);
+        const endMin = this.timeToMinutes(end);
+        
+        while (current <= endMin) {
+            slots.push(this.minutesToTime(current));
+            current += interval;
+        }
+        
+        return slots;
+    }
+    
+    timeToMinutes(time) {
+        const [h, m] = time.split(':').map(Number);
+        return h * 60 + m;
+    }
+    
+    minutesToTime(minutes) {
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+    
+    updateCheckoutAndCleanup() {
+        const checkinTime = jQuery('#rb-checkin-time').val();
+        const duration = parseFloat(jQuery('#rb-duration').val());
+        
+        if (!checkinTime || !duration) {
+            this.clearTimeDisplay();
+            return;
+        }
+        
+        jQuery.ajax({
+            url: this.ajaxUrl,
+            type: 'POST',
+            data: {
+                action: 'rb_get_checkout_time',
+                checkin_time: checkinTime,
+                duration: duration,
+                nonce: this.nonce
+            },
+            success: (response) => {
+                if (response.success) {
+                    jQuery('#rb-display-checkin').text(checkinTime);
+                    jQuery('#rb-display-checkout').text(response.data.checkout_time);
+                    jQuery('#rb-display-cleanup').text(response.data.cleanup_end);
+                }
+            }
+        });
+    }
+    
+    clearTimeDisplay() {
+        jQuery('#rb-display-checkin').text('--:--');
+        jQuery('#rb-display-checkout').text('--:--');
+        jQuery('#rb-display-cleanup').text('--:--');
+    }
+    
+    checkAvailability() {
+        const date = jQuery('#rb-booking-date').val();
+        const checkinTime = jQuery('#rb-checkin-time').val();
+        const duration = parseFloat(jQuery('#rb-duration').val());
+        const guests = parseInt(jQuery('#rb-guest-count').val());
+        const locationId = jQuery('#rb-location').val();
+        
+        if (!date || !checkinTime || !duration || !guests) {
+            alert('Vui lòng điền đầy đủ thông tin');
+            return;
+        }
+        
+        // Calculate checkout time
+        const checkoutMin = this.timeToMinutes(checkinTime) + (duration * 60);
+        const checkoutTime = this.minutesToTime(checkoutMin);
+        
+        jQuery.ajax({
+            url: this.ajaxUrl,
+            type: 'POST',
+            data: {
+                action: 'rb_check_availability_extended',
+                date: date,
+                checkin_time: checkinTime,
+                checkout_time: checkoutTime,
+                guest_count: guests,
+                location_id: locationId,
+                nonce: this.nonce
+            },
+            success: (response) => {
+                if (response.success) {
+                    if (response.data.available) {
+                        this.showAvailabilitySuccess(response.data);
+                    } else {
+                        this.showAvailabilityFailed(response.data);
+                    }
+                }
+            }
+        });
+    }
+    
+    showAvailabilitySuccess(data) {
+        jQuery('#rb-availability-message').html(`
+            <div class="rb-success-message">
+                <strong>✅ Còn bàn!</strong><br>
+                Hiện có ${data.available_count} bàn phù hợp<br>
+                <button type="submit" class="button button-primary">
+                    Tiếp tục đặt bàn
+                </button>
+            </div>
+        `).show();
+    }
+    
+    showAvailabilityFailed(data) {
+        const message = data.message || 'Khong co ban trong khoanh gio nay';
+        let html = `
+            <div class="rb-error-message">
+                <strong>❌ ${message}</strong>
+        `;
+        
+        if (data.alternatives && data.alternatives.length > 0) {
+            html += '<p><strong>💡 Gợi ý:</strong></p>';
+            data.alternatives.forEach(alt => {
+                html += `
+                    <button type="button" class="rb-alternative-time" 
+                        data-checkin="${alt.checkin}"
+                        data-checkout="${alt.checkout}">
+                        ${alt.checkin} - ${alt.checkout}
+                    </button>
+                `;
+            });
+        }
+        
+        html += '</div>';
+        
+        jQuery('#rb-availability-message').html(html).show();
+        
+        // Bind alternative time buttons
+        jQuery('.rb-alternative-time').on('click', (e) => {
+            e.preventDefault();
+            const checkin = jQuery(e.target).data('checkin');
+            const checkout = jQuery(e.target).data('checkout');
+            
+            jQuery('#rb-checkin-time').val(checkin);
+            // Update duration based on checkout
+            const duration = (this.timeToMinutes(checkout) - this.timeToMinutes(checkin)) / 60;
+            jQuery('#rb-duration').val(duration);
+            
+            this.checkAvailability();
+        });
+    }
+}
+
+// Initialize
+jQuery(document).ready(function() {
+    if (typeof rbBookingAjax !== 'undefined' && rbBookingAjax.locations) {
+        new RBTimelineBooking({
+            ajaxUrl: rbBookingAjax.ajaxUrl,
+            nonce: rbBookingAjax.nonce,
+            locations: rbBookingAjax.locations
+        });
+    }
+});
+```
+
+---
+
+=== PHASE 6: ASSETS AND STYLING ===
+
+File 1: assets/css/timeline.css (UPDATE existing)
+File 2: assets/css/timeline-booking.css (new file)
+```css
+/* Timeline Booking Form Styles */
+
+.rb-time-selection-section {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    padding: 25px;
+    margin: 25px 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.rb-time-selection-section h3 {
+    margin-top: 0;
+    color: #2c3e50;
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 12px;
+}
+
+.rb-form-row {
+    margin-bottom: 20px;
+}
+
+.rb-form-row:last-of-type {
+    margin-bottom: 0;
+}
+
+.rb-form-row label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 14px;
+}
+
+.rb-form-row select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    font-size: 14px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.rb-form-row select:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.rb-form-row select:hover {
+    border-color: #3498db;
+}
+
+.rb-hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #7f8c8d;
+    font-style: italic;
+}
+
+.rb-time-display {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 15px;
+    margin-top: 20px;
+}
+
+.rb-time-display p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.8;
+    color: #2c3e50;
+}
+
+.rb-time-display strong {
+    color: #e74c3c;
+    font-size: 15px;
+}
+
+.rb-time-display span {
+    background: #ecf0f1;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-weight: 600;
+    color: #2980b9;
+    font-family: 'Courier New', monospace;
+}
+
+/* Availability Messages */
+.rb-availability-message {
+    margin-top: 20px;
+}
+
+.rb-success-message {
+    background: #d4edda;
+    border: 2px solid #28a745;
+    border-radius: 6px;
+    padding: 15px;
+    color: #155724;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.rb-success-message strong {
+    display: block;
+    font-size: 16px;
+    margin-bottom: 8px;
+}
+
+.rb-success-message .button {
+    margin-top: 12px;
+}
+
+.rb-error-message {
+    background: #f8d7da;
+    border: 2px solid #dc3545;
+    border-radius: 6px;
+    padding: 15px;
+    color: #721c24;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.rb-error-message strong {
+    display: block;
+    font-size: 16px;
+    margin-bottom: 8px;
+}
+
+.rb-error-message p {
+    margin: 12px 0 8px 0;
+    font-weight: 600;
+}
+
+/* Alternative Time Buttons */
+.rb-alternative-time {
+    display: inline-block;
+    margin: 5px 10px 5px 0;
+    padding: 10px 15px;
+    background: #3498db;
+    color: white;
+    border: 2px solid #2980b9;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.rb-alternative-time:hover {
+    background: #2980b9;
+    border-color: #1a5276;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+}
+
+.rb-alternative-time:active {
+    transform: translateY(0);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .rb-time-selection-section {
+        padding: 20px;
+        margin: 20px 0;
+    }
+    
+    .rb-time-selection-section h3 {
+        font-size: 16px;
+    }
+    
+    .rb-form-row {
+        margin-bottom: 16px;
+    }
+    
+    .rb-form-row label {
+        font-size: 13px;
+    }
+    
+    .rb-form-row select {
+        padding: 10px;
+        font-size: 14px;
+    }
+    
+    .rb-time-display {
+        padding: 12px;
+    }
+    
+    .rb-time-display p {
+        font-size: 13px;
+    }
+    
+    .rb-alternative-time {
+        display: block;
+        width: 100%;
+        margin: 8px 0;
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .rb-time-selection-section {
+        padding: 15px;
+    }
+    
+    .rb-success-message,
+    .rb-error-message {
+        padding: 12px;
+    }
+}
+```
+
+File 3: Update assets/js/new-booking.js (if exists)
+
+Add timeline-booking.js to enqueue:
+```php
+// File: includes/class-assets-manager.php
+public function enqueue_frontend_assets() {
+    // ... existing code ...
+    
+    // Enqueue timeline booking script
+    $timeline_path = RB_PLUGIN_DIR . 'assets/js/timeline-booking.js';
+    $timeline_version = file_exists($timeline_path) ? filemtime($timeline_path) : RB_VERSION;
+    wp_enqueue_script(
+        'rb-timeline-booking',
+        RB_PLUGIN_URL . 'assets/js/timeline-booking.js',
+        array('jquery'),
+        $timeline_version,
+        true
+    );
+}
+```
+
+---
+
+=== PHASE 7: LANGUAGE SUPPORT INTEGRATION ===
+
+File: languages/vi_VN/translations.php (UPDATE)
+File: languages/en_US/translations.php (UPDATE)
+File: languages/ja_JP/translations.php (UPDATE)
+
+🔧 Add new translation keys:
+
+**Vietnamese (vi_VN):**
+```php
+// Thêm vào array translations:
+'check_in_time' => 'Giờ Nhận Bàn (Check-in)',
+'duration' => 'Thời Gian Ở Lại',
+'duration_1h' => '1 giờ',
+'duration_1_5h' => '1.5 giờ',
+'duration_2h' => '2 giờ (Khuyên dùng)',
+'duration_2_5h' => '2.5 giờ',
+'duration_3h' => '3 giờ',
+'duration_3_5h' => '3.5 giờ',
+'duration_4h' => '4 giờ',
+'duration_5h' => '5 giờ',
+'duration_6h' => '6 giờ',
+'booking_stats' => 'Thống kê',
+'check_in_time_label' => 'Giờ vào',
+'check_out_time_label' => 'Giờ ra',
+'table_ready_time' => 'Thực tế sẽ sáng bàn lúc',
+'early_late_note' => 'Khách có thể tới sớm/muộn 15 phút',
+'select_time_hint' => '-- Chọn giờ --',
+'select_duration_hint' => '-- Chọn thời lượng --',
+'availability_available' => '✅ Còn bàn!',
+'availability_tables_count' => 'Hiện có {count} bàn phù hợp',
+'continue_booking' => 'Tiếp tục đặt bàn',
+'availability_not_available' => '❌ Hết bàn trong khung giờ này',
+'alternative_suggestions' => '💡 Gợi ý:',
+'select_alternative_time' => 'Chọn giờ khác',
+'customer_can_arrive_early_late' => 'Khách có thể tới sớm/muộn 15 phút',
+'cleanup_time_info' => 'Bàn cần 1 giờ để dọn dẹp sau khi khách ra',
+```
+
+**English (en_US):**
+```php
+'check_in_time' => 'Check-in Time',
+'duration' => 'Duration',
+'duration_1h' => '1 hour',
+'duration_1_5h' => '1.5 hours',
+'duration_2h' => '2 hours (Recommended)',
+'duration_2_5h' => '2.5 hours',
+'duration_3h' => '3 hours',
+'duration_3_5h' => '3.5 hours',
+'duration_4h' => '4 hours',
+'duration_5h' => '5 hours',
+'duration_6h' => '6 hours',
+'booking_stats' => 'Booking Summary',
+'check_in_time_label' => 'Check-in time',
+'check_out_time_label' => 'Check-out time',
+'table_ready_time' => 'Table will be ready at',
+'early_late_note' => 'Customers can arrive 15 minutes early or late',
+'select_time_hint' => '-- Select time --',
+'select_duration_hint' => '-- Select duration --',
+'availability_available' => '✅ Tables available!',
+'availability_tables_count' => '{count} tables available',
+'continue_booking' => 'Continue booking',
+'availability_not_available' => '❌ No tables available at this time',
+'alternative_suggestions' => '💡 Suggestions:',
+'select_alternative_time' => 'Select alternative time',
+```
+
+**Japanese (ja_JP):**
+```php
+'check_in_time' => 'チェックイン時間',
+'duration' => '利用時間',
+'duration_1h' => '1 時間',
+'duration_1_5h' => '1.5 時間',
+'duration_2h' => '2 時間（推奨）',
+'duration_2_5h' => '2.5 時間',
+'duration_3h' => '3 時間',
+'duration_3_5h' => '3.5 時間',
+'duration_4h' => '4 時間',
+'duration_5h' => '5 時間',
+'duration_6h' => '6 時間',
+'booking_stats' => '予約概要',
+'check_in_time_label' => 'チェックイン時刻',
+'check_out_time_label' => 'チェックアウト時刻',
+'table_ready_time' => 'テーブルの準備完了時刻',
+'early_late_note' => 'お客様は 15 分早く到着することもできます',
+'select_time_hint' => '-- 時間を選択 --',
+'select_duration_hint' => '-- 期間を選択 --',
+'availability_available' => '✅ テーブル利用可能',
+'availability_tables_count' => '{count} テーブルが利用可能です',
+'continue_booking' => '予約を続行',
+'availability_not_available' => '❌ この時間にはテーブルが利用できません',
+'alternative_suggestions' => '💡 おすすめ:',
+'select_alternative_time' => '別の時間を選択',
+```
+
+---
+
+🧪 TEST CASES (Phase 5-6-7):
+
+Frontend Form:
+☐ Time slots populated correctly
+☐ Duration selector works
+☐ Time display updates dynamically
+☐ Checkout time calculated correctly
+☐ Cleanup time = checkout + 15' + 1h
+
+Availability Check:
+☐ Available slot → show success
+☐ Unavailable slot → show error
+☐ Alternative suggestions appear
+☐ Click alternative → select those times
+☐ Response includes availability count
+
+AJAX Calls:
+☐ get_checkout_time returns correct times
+☐ check_availability_extended validates correctly
+☐ Error handling for invalid inputs
+☐ Nonce verification works
+
+Styling:
+☐ Desktop: form displays nicely
+☐ Tablet: responsive layout works
+☐ Mobile: buttons clickable
+☐ Colors match design
+☐ Messages clear & readable
+
+Translations:
+☐ All keys translated to 3 languages
+☐ Language switcher changes form text
+☐ No untranslated strings visible
+☐ Plurals handled correctly (tables, hours)
+
+Integration:
+☐ Works with existing booking form
+☐ Data passed correctly to backend
+☐ Booking saved with checkin/checkout times
+☐ No breaking changes
+☐ Works with timeline admin view
+
+---
+
+⚠️ CRITICAL POINTS:
+
+✅ Frontend Validation:
+- Duration: 1-6 hours only
+- Checkout must be after checkin
+- Checkout must be during working hours
+- Check capacity availability
+
+✅ UX/DX:
+- Clear error messages
+- Helpful suggestions
+- Mobile-friendly
+- Keyboard accessible
+
+✅ Performance:
+- AJAX calls debounced
+- No unnecessary re-renders
+- Alternative times calculated efficiently
+
+✅ Accessibility:
+- Form labels for all inputs
+- ARIA attributes where needed
+- Keyboard navigation works
+- Color not only indicator
+
+✅ Backwards Compatibility:
+- Existing bookings still work
+- Optional checkin/checkout params
+- Default values sensible (2 hours)
+
+---
+
+📦 DELIVERABLES (Phase 5-6-7):
+
+1. Frontend form with time selection
+2. All AJAX endpoints for frontend
+3. Alternative time suggestions
+4. Custom styling (CSS responsive)
+5. JavaScript class well-structured
+6. All translations (3 languages)
+7. No breaking changes
+8. All features tested & working
+9. Ready for full integration
+
+---
+
+🚀 FINAL IMPLEMENTATION PRIORITY:
+
+Phase 5:
+1. Modify render_booking_form() add time section
+2. Add get_location_time_slots()
+3. Add get_checkout_time() AJAX handler
+4. Modify check_availability() for checkin/checkout
+5. Add get_alternative_times()
+6. Modify create_booking() signature
+
+Phase 6:
+1. Create timeline-booking.css (responsive)
+2. Create timeline-booking.js (class RBTimelineBooking)
+3. Enqueue in assets manager
+4. Style all UI components
+5. Mobile responsive testing
+6. Browser compatibility check
+
+Phase 7:
+1. Add all translation keys (3 languages)
+2. Update translations files
+3. Use rb_t() for all strings
+4. Test all languages
+5. Check plural forms
+6. Date/time localization
+
+---
+
+⚠️ IMPORTANT NOTES:
+
+1. Duration calculation:
+```php
+   checkout_time = checkin_time + (duration * 60 minutes)
+```
+
+Time validation:
+
+Checkout must be ≤ location closing_time
+Duration must be 1-6 hours
+Must respect location working hours
+
+
+Alternative times logic:
+
+Try offsets: -90, -60, -30, +30, +60, +90 minutes
+Stop after finding 2 valid alternatives
+Suggest closest times first
+
+
+Translation keys:
+
+Use dot notation for context: 'booking.checkin_time'
+Keep keys short but descriptive
+Always provide English fallback
+Test with longest language (Japanese/Vietnamese)
+
+
+Mobile considerations:
+
+Tap targets min 44px
+Form fields must be large enough
+Scrollable alternatives list
+Landscape mode support
+
+
+Performance tips:
+
+Cache time slots per location
+Debounce availability checks (500ms)
+Use requestAnimationFrame for DOM updates
+Lazy load translations
+
+
+
+
+📋 INTEGRATION WITH PHASE 1-4
+Phase 5-7 depends on Phase 1-4:
+
+✅ Database schema (Phase 1)
+✅ Backend methods (Phase 2): is_time_slot_available(), get_timeline_data()
+✅ AJAX endpoints (Phase 3): check_availability_extended()
+✅ Admin timeline (Phase 4): not needed for frontend but shares infrastructure
+
+
+🔧 UPDATE EXISTING FILES
+File: includes/class-ajax.php
+Add new methods or update existing:
+php/**
+ * Get checkout time based on checkin + duration
+ */
+public function get_checkout_time() {
+    check_ajax_referer('rb_frontend_nonce', 'nonce');
+    
+    $checkin_time = sanitize_text_field($_POST['checkin_time']);
+    $duration = floatval($_POST['duration']);
+    
+    if (!$checkin_time || !$duration) {
+        wp_send_json_error(array('message' => 'Invalid parameters'));
+    }
+    
+    // Convert to minutes
+    list($h, $m) = explode(':', $checkin_time);
+    $checkin_minutes = ($h * 60) + $m;
+    
+    // Add duration
+    $checkout_minutes = $checkin_minutes + ($duration * 60);
+    
+    // Validate within 24 hours
+    if ($checkout_minutes >= 1440) {
+        $checkout_minutes -= 1440; // Next day
+    }
+    
+    // Convert back to HH:MM
+    $checkout_hour = intval($checkout_minutes / 60);
+    $checkout_min = intval($checkout_minutes % 60);
+    $checkout_time = sprintf('%02d:%02d', $checkout_hour, $checkout_min);
+    
+    // Calculate cleanup end (checkout + 15' + 1h)
+    $cleanup_minutes = $checkout_minutes + 15 + 60;
+    if ($cleanup_minutes >= 1440) {
+        // Next day - just show time
+        $cleanup_minutes -= 1440;
+    }
+    
+    $cleanup_hour = intval($cleanup_minutes / 60);
+    $cleanup_min = intval($cleanup_minutes % 60);
+    $cleanup_end = sprintf('%02d:%02d', $cleanup_hour, $cleanup_min);
+    
+    wp_send_json_success(array(
+        'checkout_time' => $checkout_time,
+        'cleanup_end' => $cleanup_end
+    ));
+}
+
+/**
+ * MODIFY: check_availability for frontend with checkin/checkout
+ */
+public function check_availability_extended() {
+    check_ajax_referer('rb_frontend_nonce', 'nonce');
+    
+    $date = sanitize_text_field($_POST['date']);
+    $checkin_time = sanitize_text_field($_POST['checkin_time']);
+    $checkout_time = sanitize_text_field($_POST['checkout_time']);
+    $guest_count = intval($_POST['guest_count']);
+    $location_id = intval($_POST['location_id']);
+    
+    global $rb_booking;
+    
+    $available = $rb_booking->is_time_slot_available(
+        $date,
+        $checkin_time,
+        $checkout_time,
+        $guest_count,
+        null,
+        $location_id
+    );
+    
+    if ($available) {
+        $available_count = $rb_booking->available_table_count(
+            $date, $checkin_time, $guest_count, $location_id
+        );
+        
+        wp_send_json_success(array(
+            'available' => true,
+            'message' => rb_t('tables_available', 'Tables available'),
+            'available_count' => $available_count,
+            'checkin_time' => $checkin_time,
+            'checkout_time' => $checkout_time
+        ));
+    } else {
+        // Get alternatives
+        global $rb_frontend;
+        if (!$rb_frontend) {
+            require_once RB_PLUGIN_DIR . 'public/class-frontend.php';
+            $rb_frontend = new RB_Frontend();
+        }
+        
+        $alternatives = $rb_frontend->get_alternative_times(
+            $location_id,
+            $date,
+            $checkin_time,
+            ($this->timeToMinutes($checkout_time) - $this->timeToMinutes($checkin_time)) / 60,
+            $guest_count
+        );
+        
+        wp_send_json_success(array(
+            'available' => false,
+            'message' => rb_t('no_tables_available', 'No tables available'),
+            'alternatives' => $alternatives
+        ));
+    }
+}
+
+// Helper method
+private function timeToMinutes($time) {
+    list($h, $m) = explode(':', $time);
+    return ($h * 60) + $m;
+}
+File: public/class-frontend.php
+Add these methods:
+php/**
+ * Get alternative times when slot unavailable
+ */
+public function get_alternative_times($location_id, $date, $checkin_time, $duration, $guest_count) {
+    global $rb_booking;
+    
+    $alternatives = [];
+    $offsets = [-90, -60, -30, 30, 60, 90]; // minutes
+    $max_alternatives = 2;
+    
+    foreach ($offsets as $offset) {
+        // Calculate alternative times
+        $alt_checkin_min = $this->timeToMinutes($checkin_time) + $offset;
+        
+        // Handle day boundary
+        if ($alt_checkin_min < 0) {
+            $alt_checkin_min += 1440;
+        } elseif ($alt_checkin_min >= 1440) {
+            $alt_checkin_min -= 1440;
+        }
+        
+        $alt_checkin = $this->minutesToTime($alt_checkin_min);
+        $alt_checkout_min = $alt_checkin_min + ($duration * 60);
+        
+        if ($alt_checkout_min >= 1440) {
+            $alt_checkout_min -= 1440;
+        }
+        
+        $alt_checkout = $this->minutesToTime($alt_checkout_min);
+        
+        // Check if available
+        $is_available = $rb_booking->is_time_slot_available(
+            $date,
+            $alt_checkin,
+            $alt_checkout,
+            $guest_count,
+            null,
+            $location_id
+        );
+        
+        if ($is_available) {
+            $alternatives[] = [
+                'checkin' => $alt_checkin,
+                'checkout' => $alt_checkout,
+                'diff_minutes' => $offset
+            ];
+            
+            if (count($alternatives) >= $max_alternatives) {
+                break;
+            }
+        }
+    }
+    
+    return $alternatives;
+}
+
+/**
+ * Helper: Convert time to minutes
+ */
+private function timeToMinutes($time) {
+    list($h, $m) = explode(':', $time);
+    return ($h * 60) + $m;
+}
+
+/**
+ * Helper: Convert minutes to time
+ */
+private function minutesToTime($minutes) {
+    $h = intval($minutes / 60);
+    $m = intval($minutes % 60);
+    return sprintf('%02d:%02d', $h, $m);
+}
+
+/**
+ * Get location time slots
+ */
+public function get_location_time_slots($location_id) {
+    global $rb_location;
+    
+    if (!$rb_location) {
+        require_once RB_PLUGIN_DIR . 'includes/class-location.php';
+        $rb_location = new RB_Location();
+    }
+    
+    $settings = $rb_location->get_settings($location_id);
+    
+    if (empty($settings)) {
+        return [];
+    }
+    
+    $opening = $settings['opening_time'] ?? '09:00';
+    $closing = $settings['closing_time'] ?? '22:00';
+    $interval = intval($settings['time_slot_interval'] ?? 30);
+    
+    $slots = [];
+    $current = $this->timeToMinutes($opening);
+    $end = $this->timeToMinutes($closing);
+    
+    while ($current <= $end) {
+        $slots[] = $this->minutesToTime($current);
+        $current += $interval;
+    }
+    
+    return $slots;
+}
+File: includes/class-assets-manager.php
+Update enqueue to include timeline-booking:
+phppublic function enqueue_frontend_assets() {
+    if (!$this->should_enqueue_assets()) {
+        return;
+    }
+
+    // Existing CSS
+    $style_path = RB_PLUGIN_DIR . 'assets/css/new-frontend.css';
+    $style_version = file_exists($style_path) ? filemtime($style_path) : RB_VERSION;
+    wp_enqueue_style(
+        'rb-new-frontend',
+        RB_PLUGIN_URL . 'assets/css/new-frontend.css',
+        array(),
+        $style_version
+    );
+
+    // ✅ NEW: Timeline booking styles
+    $timeline_style_path = RB_PLUGIN_DIR . 'assets/css/timeline-booking.css';
+    $timeline_style_version = file_exists($timeline_style_path) ? filemtime($timeline_style_path) : RB_VERSION;
+    wp_enqueue_style(
+        'rb-timeline-booking',
+        RB_PLUGIN_URL . 'assets/css/timeline-booking.css',
+        array('rb-new-frontend'),
+        $timeline_style_version
+    );
+
+    // Existing JS
+    $script_path = RB_PLUGIN_DIR . 'assets/js/new-booking.js';
+    $script_version = file_exists($script_path) ? filemtime($script_path) : RB_VERSION;
+    wp_enqueue_script(
+        'rb-new-booking',
+        RB_PLUGIN_URL . 'assets/js/new-booking.js',
+        array('jquery'),
+        $script_version,
+        true
+    );
+
+    // ✅ NEW: Timeline booking script
+    $timeline_path = RB_PLUGIN_DIR . 'assets/js/timeline-booking.js';
+    $timeline_version = file_exists($timeline_path) ? filemtime($timeline_path) : RB_VERSION;
+    wp_enqueue_script(
+        'rb-timeline-booking',
+        RB_PLUGIN_URL . 'assets/js/timeline-booking.js',
+        array('jquery', 'rb-new-booking'),
+        $timeline_version,
+        true
+    );
+
+    wp_localize_script('rb-new-booking', 'rbBookingAjax', array(
+        'ajaxUrl' => admin_url('admin-ajax.php'),
+        'nonce' => wp_create_nonce('rb_frontend_nonce'),
+        'languageNonce' => wp_create_nonce('rb_language_nonce'),
+        'languageAction' => 'rb_switch_language',
+        'shouldReloadOnLanguageChange' => true,
+        'currentLanguage' => rb_get_current_language(),
+    ));
+
+    wp_localize_script('rb-new-booking', 'rbBookingStrings', array(
+        // ... existing strings ...
+        'checkInTime' => rb_t('check_in_time', 'Check-in time'),
+        'duration' => rb_t('duration', 'Duration'),
+        'availableCount' => rb_t('availability_tables_count', '{count} tables available'),
+        'selectAlternativeTime' => rb_t('select_alternative_time', 'Select alternative time'),
+        // ... more strings ...
+    ));
+}
+```
+
+---
+
+## 🧪 COMPREHENSIVE TEST CHECKLIST
+
+### **Phase 5-6-7 Complete Test:**
+```
+✅ Frontend Form Tests:
+
+Time Selection:
+☐ Time slots load correctly
+☐ Time slots match location hours
+☐ Duration dropdown has all options (1-6h)
+☐ Time display updates on change
+☐ Checkout time calculated correctly
+☐ Cleanup end time = checkout + 15' + 1h
+☐ Mobile: dropdown clickable & usable
+☐ Keyboard: Tab navigation works
+
+Availability Check:
+☐ Valid slot → success message
+☐ Invalid slot → error message + alternatives
+☐ Click alternative → selects time & rechecks
+☐ Multiple alternatives show all options
+☐ Available count displayed correctly
+☐ Error message is clear & helpful
+
+Form Submission:
+☐ Form submit with valid times
+☐ Booking saved with checkin/checkout
+☐ Data in database correct
+☐ Confirmation email includes times
+☐ Admin can see times in booking list
+
+AJAX Tests:
+☐ get_checkout_time returns correct result
+☐ check_availability_extended validates correctly
+☐ Alternative times calculated properly
+☐ Error handling for invalid inputs
+☐ Nonce verification working
+☐ Response JSON valid
+
+CSS & Styling:
+☐ Form section styled nicely
+☐ Inputs have proper borders/focus
+☐ Messages styled (green=success, red=error)
+☐ Buttons clickable & visible
+☐ Colors match design palette
+☐ Text readable (contrast OK)
+☐ Desktop layout looks good
+☐ Tablet layout responsive
+☐ Mobile layout works (vertical, fits screen)
+
+JavaScript:
+☐ RBTimelineBooking class initializes
+☐ Events bound correctly
+☐ No console errors
+☐ AJAX calls working
+☐ Time calculations accurate
+☐ No memory leaks (check DevTools)
+
+Translations:
+☐ All strings translated (3 languages)
+☐ Vietnamese: readable & correct
+☐ English: grammatically correct
+☐ Japanese: readable & correct
+☐ Language switcher changes all text
+☐ Date/time format localized
+☐ No fallback English strings visible
+☐ RTL support (if applicable)
+
+Integration with Timeline:
+☐ Admin timeline shows check-in/out times
+☐ Booking cells positioned correctly
+☐ Timeline grid shows correct duration
+☐ Drag-and-drop still works
+☐ Check-in/out buttons still work
+☐ Status colors correct
+
+Integration with Backend:
+☐ Phase 1 database schema used
+☐ Phase 2 backend methods called correctly
+☐ Phase 3 AJAX endpoints working
+☐ Phase 4 admin timeline shows data
+☐ No conflicts with existing features
+
+Edge Cases:
+☐ Very short booking (1h)
+☐ Very long booking (6h)
+☐ Booking crossing midnight
+☐ Location with lunch break
+☐ Location with 2 shifts
+☐ Mobile: portrait → landscape
+☐ Multiple locations: switching works
+☐ Multiple languages: switching works
+☐ No bookings available: suggestions shown
+☐ All alternatives unavailable: message shown
+
+Performance:
+☐ AJAX calls < 500ms
+☐ Form renders quickly
+☐ Time slot generation fast
+☐ No lag when changing inputs
+☐ Smooth animations
+☐ No unnecessary re-renders
+
+Browser Compatibility:
+☐ Chrome latest (desktop & mobile)
+☐ Firefox latest (desktop & mobile)
+☐ Safari latest (desktop & mobile)
+☐ Edge latest
+☐ Mobile browsers (iOS Safari, Chrome Mobile)
+
+Accessibility:
+☐ Form labels present
+☐ ARIA attributes for status messages
+☐ Keyboard navigation: Tab/Enter/Escape
+☐ Focus visible on all inputs
+☐ Color not only indicator
+☐ Error messages descriptive
+☐ Mobile touch targets > 44px
+
+Security:
+☐ Nonce verified before processing
+☐ current_user_can() check (if needed)
+☐ Input sanitization (sanitize_text_field, intval)
+☐ SQL injection prevention ($wpdb->prepare)
+☐ XSS prevention (esc_html, esc_attr)
+☐ CSRF protection via nonce
+
+Backward Compatibility:
+☐ Old bookings without times still work
+☐ create_booking() without times works
+☐ Existing form fields still function
+☐ No breaking changes to API
+☐ Old shortcodes still work
+☐ Admin pages still work
+```
+
+---
+
+## 📊 FINAL DELIVERABLES
+
+**Phase 5-6-7 Complete Package:**
+```
+✅ Frontend Form Enhancement:
+   - Time selection UI
+   - Duration selector
+   - Real-time calculations
+   - Availability checking
+   - Alternative suggestions
+
+✅ AJAX Endpoints:
+   - get_checkout_time()
+   - check_availability_extended()
+   - Alternative time suggestions
+
+✅ Styling & Design:
+   - timeline-booking.css (responsive)
+   - Custom components styled
+   - Mobile-friendly design
+   - Color scheme consistent
+
+✅ JavaScript Functionality:
+   - timeline-booking.js (RBTimelineBooking class)
+   - Event handling
+   - AJAX integration
+   - Time calculations
+
+✅ Translations:
+   - Vietnamese (vi_VN)
+   - English (en_US)
+   - Japanese (ja_JP)
+   - All keys translated
+   - Proper localization
+
+✅ Integration:
+   - Works with Phase 1-4
+   - Backend logic utilized
+   - No breaking changes
+   - Backward compatible
+
+✅ Testing:
+   - All features tested
+   - Edge cases covered
+   - Performance verified
+   - Security validated
+   - Accessibility checked
+```
+
+---
+
+## 🚀 POST-IMPLEMENTATION STEPS
+
+After all 3 prompts completed & tested:
+```
+1. Code Review:
+   ☐ Review all code for standards
+   ☐ Check security implications
+   ☐ Verify performance
+   ☐ Test edge cases
+
+2. Merge & Deploy:
+   ☐ Merge Phase 1-4 to main
+   ☐ Test on staging
+   ☐ Merge Phase 5-7 to main
+   ☐ Final integration test
+   ☐ Deploy to production
+
+3. Post-Deploy:
+   ☐ Monitor error logs
+   ☐ Check performance metrics
+   ☐ Verify all features work
+   ☐ Gather user feedback
+   ☐ Document any issues
+
+4. Documentation:
+   ☐ Update README
+   ☐ Add admin guide
+   ☐ Add user guide
+   ☐ API documentation
+   ☐ Changelog update
+
+5. Release:
+   ☐ Bump version number
+   ☐ Update CHANGELOG
+   ☐ Commit with message
+   ☐ Tag release
+   ☐ Announce features
+```
+
+---
+
+Vậy là tôi đã chuẩn bị **3 prompt chi tiết** cho Claude Code:
+
+1. ✅ **Prompt Phase 1-2:** Database + Backend Logic
+2. ✅ **Prompt Phase 3-4:** AJAX + Admin UI  
+3. ✅ **Prompt Phase 5-6-7:** Frontend + Assets + Translations
+
+**Cách thực hiện:**
+```
+Lần 1: Phase 1-2 → Test → OK
+        ↓
+Lần 2: Phase 3-4 → Test → OK
+        ↓
+Lần 3: Phase 5-6-7 → Test → OK
+        ↓
+Integration Test → Deploy → Done! 🎉
+Bạn có cần điều chỉnh gì hay sẵn sàng bắt đầu với Claude Code? 
