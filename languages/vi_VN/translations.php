@@ -149,6 +149,15 @@ return array(
     
     // ========== ADMIN MENU ==========
     'dashboard' => 'Dashboard',
+    'timeline' => 'Timeline',
+    'timeline_overview' => 'Tổng quan timeline',
+    'no_table_assigned' => 'Chưa gán bàn',
+    'timeline_switch_location' => 'Vui lòng chuyển sang đúng chi nhánh trước khi xem timeline này.',
+    'timeline_switch_status' => 'Vui lòng chuyển sang đúng chi nhánh trước khi cập nhật trạng thái bàn.',
+    'timeline_table_missing' => 'Bàn được chọn không tồn tại tại chi nhánh này.',
+    'timeline_table_capacity' => 'Bàn được chọn không đủ chỗ cho số khách.',
+    'timeline_table_unavailable' => 'Bàn được chọn không khả dụng ở khung giờ này.',
+    'timeline_status_update_failed' => 'Không thể cập nhật trạng thái bàn. Vui lòng thử lại.',
     'manage_bookings' => 'Quản lý đặt bàn',
     'create_new_booking' => 'Tạo đặt bàn mới',
     'manage_tables' => 'Quản lý bàn',

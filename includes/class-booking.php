@@ -658,6 +658,99 @@ class RB_Booking {
         return count($tables);
     }
 
+    public function is_table_available_for_booking($location_id, $table_number, $date, $time, $guest_count, $checkin_time = null, $checkout_time = null, $exclude_booking_id = null) {
+        $location_id = (int) $location_id;
+        $table_number = (int) $table_number;
+        $guest_count = (int) $guest_count;
+
+        if ($location_id <= 0 || $table_number <= 0 || empty($date) || empty($time) || $guest_count <= 0) {
+            return false;
+        }
+
+        $tables_table = $this->wpdb->prefix . 'rb_tables';
+        $table = $this->wpdb->get_row($this->wpdb->prepare(
+            "SELECT id, capacity FROM {$tables_table} WHERE location_id = %d AND table_number = %d",
+            $location_id,
+            $table_number
+        ));
+
+        if (!$table) {
+            return false;
+        }
+
+        if ((int) $table->capacity < $guest_count) {
+            return false;
+        }
+
+        $normalized_checkin = $this->normalize_time_input($checkin_time ?: $time);
+        if (!$normalized_checkin) {
+            return false;
+        }
+
+        $checkin_timestamp = $this->parse_time_to_timestamp($date, $normalized_checkin);
+        if (!$checkin_timestamp) {
+            return false;
+        }
+
+        $normalized_checkout = $this->normalize_time_input($checkout_time);
+        if (!$normalized_checkout) {
+            $normalized_checkout = $this->format_time($checkin_timestamp + (2 * HOUR_IN_SECONDS));
+        }
+
+        $checkout_timestamp = $this->parse_time_to_timestamp($date, $normalized_checkout);
+        if (!$checkout_timestamp || $checkout_timestamp <= $checkin_timestamp) {
+            return false;
+        }
+
+        $duration_minutes = ($checkout_timestamp - $checkin_timestamp) / MINUTE_IN_SECONDS;
+        if ($duration_minutes < self::MIN_DURATION_MINUTES || $duration_minutes > self::MAX_DURATION_MINUTES) {
+            return false;
+        }
+
+        if (!$this->is_within_working_hours($date, $checkin_timestamp, $checkout_timestamp, $location_id)) {
+            return false;
+        }
+
+        $window = $this->calculate_time_window($date, $normalized_checkin, $normalized_checkout);
+        if (empty($window['actual_checkin']) || empty($window['actual_checkout'])) {
+            return false;
+        }
+
+        $bookings_table = $this->wpdb->prefix . 'rb_bookings';
+        $query = "SELECT id, booking_time, checkin_time, checkout_time, actual_checkin, actual_checkout, cleanup_completed_at FROM {$bookings_table} WHERE booking_date = %s AND location_id = %d AND table_number = %d AND status IN ('pending','confirmed')";
+        $params = array($date, $location_id, $table_number);
+
+        if (!empty($exclude_booking_id)) {
+            $query .= ' AND id != %d';
+            $params[] = (int) $exclude_booking_id;
+        }
+
+        $existing = $this->wpdb->get_results($this->wpdb->prepare($query, $params));
+
+        if (!empty($existing)) {
+            foreach ($existing as $existing_booking) {
+                $existing_window = $this->calculate_time_window(
+                    $date,
+                    !empty($existing_booking->checkin_time) ? $existing_booking->checkin_time : $existing_booking->booking_time,
+                    !empty($existing_booking->checkout_time) ? $existing_booking->checkout_time : $existing_booking->booking_time,
+                    $existing_booking->actual_checkin,
+                    $existing_booking->actual_checkout,
+                    $existing_booking->cleanup_completed_at
+                );
+
+                if (empty($existing_window['actual_checkin']) || empty($existing_window['actual_checkout'])) {
+                    return false;
+                }
+
+                if ($window['actual_checkin'] < $existing_window['actual_checkout'] && $window['actual_checkout'] > $existing_window['actual_checkin']) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
     public function get_timeline_data($date, $location_id) {
         $date = sanitize_text_field($date);
         $location_id = (int) $location_id;
