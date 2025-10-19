@@ -61,6 +61,112 @@ class RB_Database {
         } else {
             $this->create_portal_account_locations_table();
         }
+
+        $this->migrate_to_timeline_schema();
+    }
+
+    public function migrate_to_timeline_schema() {
+        $bookings_table = $this->wpdb->prefix . 'rb_bookings';
+        $tables_table = $this->wpdb->prefix . 'rb_tables';
+
+        if (!$this->table_exists($bookings_table) || !$this->table_exists($tables_table)) {
+            return;
+        }
+
+        // Thêm cột mới cho bảng bookings (timeline schema)
+        $this->maybe_add_column(
+            $bookings_table,
+            'checkin_time',
+            "ALTER TABLE {$bookings_table} ADD COLUMN checkin_time TIME NOT NULL DEFAULT '00:00:00' AFTER booking_time"
+        );
+
+        $this->maybe_add_column(
+            $bookings_table,
+            'checkout_time',
+            "ALTER TABLE {$bookings_table} ADD COLUMN checkout_time TIME NOT NULL DEFAULT '00:00:00' AFTER checkin_time"
+        );
+
+        $this->maybe_add_column(
+            $bookings_table,
+            'actual_checkin',
+            "ALTER TABLE {$bookings_table} ADD COLUMN actual_checkin DATETIME NULL AFTER checkout_time"
+        );
+
+        $this->maybe_add_column(
+            $bookings_table,
+            'actual_checkout',
+            "ALTER TABLE {$bookings_table} ADD COLUMN actual_checkout DATETIME NULL AFTER actual_checkin"
+        );
+
+        $this->maybe_add_column(
+            $bookings_table,
+            'cleanup_completed_at',
+            "ALTER TABLE {$bookings_table} ADD COLUMN cleanup_completed_at DATETIME NULL AFTER actual_checkout"
+        );
+
+        $this->maybe_add_index(
+            $bookings_table,
+            'checkin_checkout_index',
+            "ALTER TABLE {$bookings_table} ADD KEY checkin_checkout_index (location_id, booking_date, checkin_time, checkout_time)"
+        );
+
+        // Thêm cột mới cho bảng tables (tracking trạng thái)
+        $this->maybe_add_column(
+            $tables_table,
+            'current_status',
+            "ALTER TABLE {$tables_table} ADD COLUMN current_status ENUM('available','occupied','cleaning','reserved') NOT NULL DEFAULT 'available' AFTER is_available"
+        );
+
+        $this->maybe_add_column(
+            $tables_table,
+            'status_updated_at',
+            "ALTER TABLE {$tables_table} ADD COLUMN status_updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER current_status"
+        );
+
+        $this->maybe_add_column(
+            $tables_table,
+            'last_booking_id',
+            "ALTER TABLE {$tables_table} ADD COLUMN last_booking_id INT NULL AFTER status_updated_at"
+        );
+
+        $this->maybe_add_index(
+            $tables_table,
+            'current_status_index',
+            "ALTER TABLE {$tables_table} ADD KEY current_status_index (location_id, current_status)"
+        );
+
+        // Migration dữ liệu cũ sang schema mới
+        if ($this->column_exists($bookings_table, 'checkin_time')) {
+            $this->wpdb->query("UPDATE {$bookings_table} SET checkin_time = booking_time WHERE checkin_time IS NULL OR checkin_time = '00:00:00'");
+        }
+
+        if ($this->column_exists($bookings_table, 'checkout_time')) {
+            $this->wpdb->query("UPDATE {$bookings_table} SET checkout_time = ADDTIME(booking_time, '02:00:00') WHERE checkout_time IS NULL OR checkout_time = '00:00:00'");
+        }
+
+        if ($this->column_exists($bookings_table, 'actual_checkin')) {
+            $this->wpdb->query("UPDATE {$bookings_table} SET actual_checkin = DATE_SUB(CONCAT(booking_date, ' ', checkin_time), INTERVAL 15 MINUTE) WHERE actual_checkin IS NULL");
+        }
+
+        if ($this->column_exists($bookings_table, 'actual_checkout')) {
+            $this->wpdb->query("UPDATE {$bookings_table} SET actual_checkout = DATE_ADD(DATE_ADD(CONCAT(booking_date, ' ', checkout_time), INTERVAL 15 MINUTE), INTERVAL 1 HOUR) WHERE actual_checkout IS NULL");
+        }
+
+        if ($this->column_exists($bookings_table, 'cleanup_completed_at')) {
+            $this->wpdb->query("UPDATE {$bookings_table} SET cleanup_completed_at = actual_checkout WHERE cleanup_completed_at IS NULL AND actual_checkout IS NOT NULL");
+        }
+
+        if ($this->column_exists($tables_table, 'current_status')) {
+            $this->wpdb->query("UPDATE {$tables_table} SET current_status = 'available' WHERE current_status IS NULL OR current_status = ''");
+        }
+
+        if ($this->column_exists($tables_table, 'status_updated_at')) {
+            $this->wpdb->query("UPDATE {$tables_table} SET status_updated_at = CURRENT_TIMESTAMP WHERE status_updated_at IS NULL OR status_updated_at = '0000-00-00 00:00:00'");
+        }
+
+        if ($this->column_exists($tables_table, 'last_booking_id')) {
+            $this->wpdb->query("UPDATE {$tables_table} SET last_booking_id = NULL WHERE last_booking_id = 0");
+        }
     }
 
     private function create_bookings_table() {
@@ -254,6 +360,14 @@ class RB_Database {
         if (empty($index_exists)) {
             $this->wpdb->query($sql);
         }
+    }
+
+    private function column_exists($table, $column) {
+        $result = $this->wpdb->get_var(
+            $this->wpdb->prepare("SHOW COLUMNS FROM {$table} LIKE %s", $column)
+        );
+
+        return !empty($result);
     }
 
     private function maybe_drop_index($table, $index) {
