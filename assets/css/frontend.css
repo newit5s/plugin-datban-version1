@@ -1,0 +1,2136 @@
+/* Restaurant Booking - Frontend Styles - Dark Theme (Synchronized) */
+
+/* Booking Widget Container */
+.rb-booking-widget {
+    position: relative;
+}
+
+/* Open Modal Button */
+.rb-open-modal-btn {
+    background: #8b6f47;
+    color: #ffffff;
+    padding: 12px 30px;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+}
+
+.rb-open-modal-btn:hover {
+    background: #a08153;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(139, 111, 71, 0.5);
+}
+
+/* Modal Styles */
+.rb-modal {
+    display: none;
+    position: fixed;
+    z-index: 99999;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.85);
+    animation: fadeIn 0.3s;
+}
+
+.rb-modal.show {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.rb-modal-content {
+    background-color: #121212;
+    margin: 40px auto;
+    padding: 0;
+    border-radius: 16px;
+    width: min(940px, 92%);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.55);
+    animation: slideIn 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    position: relative;
+    overflow: hidden;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.rb-modal-content h2 {
+    background: none;
+    color: inherit;
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+/* Close Button */
+.rb-close {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    background: rgba(255, 255, 255, 0.06);
+    border: none;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    color: #d4d4d4;
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.3s ease, color 0.3s ease;
+}
+
+.rb-close:hover,
+.rb-close:focus {
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+}
+
+/* Booking Layout */
+.rb-booking-layout {
+    display: flex;
+    flex-wrap: wrap;
+    background: linear-gradient(135deg, rgba(18, 18, 18, 0.95), rgba(28, 24, 20, 0.95));
+}
+
+.rb-booking-sidebar {
+    flex: 1 1 280px;
+    background: linear-gradient(160deg, rgba(42, 35, 24, 0.95), rgba(20, 18, 16, 0.95));
+    color: #f3e7d3;
+    display: flex;
+}
+
+.rb-booking-sidebar-inner {
+    padding: 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.rb-sidebar-heading {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: 0.02em;
+}
+
+.rb-sidebar-text {
+    margin: 0;
+    color: rgba(243, 231, 211, 0.85);
+    line-height: 1.6;
+}
+
+.rb-sidebar-meta {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.rb-sidebar-meta li {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.rb-meta-label {
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: rgba(243, 231, 211, 0.6);
+}
+
+.rb-meta-value {
+    font-size: 15px;
+    font-weight: 600;
+    color: #f3e7d3;
+}
+
+.rb-sidebar-note {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: rgba(243, 231, 211, 0.75);
+}
+
+.rb-booking-main {
+    flex: 1 1 400px;
+    padding: 48px 44px 40px;
+    background: rgba(12, 12, 12, 0.92);
+}
+
+.rb-inline-shell {
+    margin-top: 40px;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+    background: linear-gradient(135deg, rgba(18, 18, 18, 0.95), rgba(28, 24, 20, 0.95));
+}
+
+.rb-inline-layout {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.rb-inline-form-card {
+    flex: 1 1 420px;
+    padding: 44px 40px 40px;
+    background: rgba(12, 12, 12, 0.92);
+}
+
+/* Form Styles */
+.rb-form {
+    padding: 0;
+    background: transparent;
+}
+
+.rb-form-row {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.rb-form-group {
+    flex: 1;
+    margin-bottom: 16px;
+}
+
+.rb-form-row .rb-form-group {
+    margin-bottom: 0;
+}
+
+.rb-form-group label,
+.rb-form-section-title {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #d4d4d4;
+    font-size: 14px;
+}
+
+.rb-form-group input,
+.rb-form-group select,
+.rb-form-group textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #3a3a3a;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: border-color 0.3s;
+    box-sizing: border-box;
+    background: #2a2a2a;
+    color: #e8e8e8;
+}
+
+.rb-form-group input:focus,
+.rb-form-group select:focus,
+.rb-form-group textarea:focus {
+    outline: none;
+    border-color: #8b6f47;
+    box-shadow: 0 0 0 2px rgba(139, 111, 71, 0.3);
+}
+
+.rb-form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.rb-form-group select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23e8e8e8' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 35px;
+}
+
+.rb-form-section {
+    margin-bottom: 32px;
+}
+
+.rb-form-section:last-of-type {
+    margin-bottom: 24px;
+}
+
+.rb-form-section-title {
+    font-size: 15px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.75);
+    margin-bottom: 18px;
+}
+
+.rb-step-indicator {
+    display: flex;
+    gap: 18px;
+    margin-bottom: 32px;
+}
+
+.rb-step-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.rb-step-item.active {
+    background: rgba(139, 111, 71, 0.18);
+    border-color: rgba(139, 111, 71, 0.45);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.rb-step-number {
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.06);
+    font-weight: 600;
+    font-size: 12px;
+    color: #ffffff;
+}
+
+.rb-step-item.active .rb-step-number {
+    background: #8b6f47;
+}
+
+.rb-step-label {
+    white-space: nowrap;
+}
+
+/* Form Actions */
+.rb-form-actions {
+    display: flex;
+    gap: 16px;
+    justify-content: flex-end;
+    margin-top: 36px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Buttons */
+.rb-btn-primary,
+.rb-btn-secondary,
+.rb-btn-cancel {
+    padding: 12px 30px !important;
+    border: none !important;
+    border-radius: 4px !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+}
+
+.rb-btn-primary {
+    background: linear-gradient(140deg, #8b6f47, #b8925b) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 10px 25px rgba(139, 111, 71, 0.25) !important;
+}
+
+.rb-btn-primary:hover {
+    background: linear-gradient(140deg, #9c7f55, #c9a267) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 14px 30px rgba(139, 111, 71, 0.35) !important;
+}
+
+.rb-btn-secondary {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #e8e8e8 !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+.rb-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.16) !important;
+}
+
+.rb-btn-cancel,
+.rb-close-modal {
+    background: #3a3a3a !important;
+    color: #d4d4d4 !important;
+}
+
+.rb-btn-cancel:hover,
+.rb-close-modal:hover {
+    background: #4a4a4a !important;
+}
+
+/* Availability Check */
+.rb-availability-check {
+    margin-top: 20px;
+    padding: 20px;
+    background: #252525;
+    border-radius: 4px;
+    border: 1px solid #3a3a3a;
+}
+
+#rb-availability-result {
+    margin-top: 15px;
+    padding: 12px;
+    border-radius: 4px;
+    display: none;
+}
+
+#rb-availability-result.success {
+    background: #1b3a1b;
+    color: #81c784;
+    border: 1px solid #2e7d32;
+    display: block;
+}
+
+#rb-availability-result.error {
+    background: #3a1b1b;
+    color: #ef5350;
+    border: 1px solid #c62828;
+    display: block;
+}
+
+/* Form Messages */
+.rb-form-message {
+    margin-top: 24px;
+    padding: 18px 20px;
+    border-radius: 12px;
+    display: none;
+    animation: slideDown 0.3s ease;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.rb-form-message.success {
+    background: rgba(51, 102, 51, 0.25);
+    border-color: rgba(129, 199, 132, 0.45);
+    color: #a5e2a9;
+    display: block;
+}
+
+.rb-form-message.error {
+    background: rgba(153, 51, 51, 0.25);
+    border-color: rgba(239, 83, 80, 0.45);
+    color: #ff9b9b;
+    display: block;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.rb-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+/* Loading State */
+.rb-loading {
+    position: relative;
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+.rb-loading::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 30px;
+    height: 30px;
+    margin: -15px 0 0 -15px;
+    border: 3px solid #3a3a3a;
+    border-top: 3px solid #8b6f47;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .rb-modal-content {
+        width: 96%;
+        margin: 20px auto;
+    }
+
+    .rb-booking-layout,
+    .rb-inline-layout {
+        flex-direction: column;
+    }
+
+    .rb-booking-sidebar,
+    .rb-inline-shell .rb-booking-sidebar,
+    .rb-booking-main,
+    .rb-inline-form-card {
+        flex: 1 1 100%;
+    }
+
+    .rb-booking-sidebar-inner,
+    .rb-booking-main,
+    .rb-inline-form-card {
+        padding: 32px 28px;
+    }
+
+    .rb-step-indicator {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .rb-form-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .rb-btn-primary,
+    .rb-btn-secondary,
+    .rb-btn-cancel {
+        width: 100%;
+    }
+
+    .rb-form-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .rb-modal-header h2,
+    .rb-inline-header h3 {
+        font-size: 20px;
+    }
+
+    .rb-open-modal-btn {
+        width: 100%;
+        padding: 15px;
+    }
+
+    .rb-step-item {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .rb-modal {
+        display: none !important;
+    }
+}
+/* ========================================
+   LANGUAGE SWITCHER IN BOOKING FORM
+   ======================================== */
+
+/* Modal Header with Language Switcher */
+.rb-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 32px;
+}
+
+.rb-modal-header h2 {
+    margin: 0;
+    color: #f5f2eb;
+    font-size: 28px;
+    line-height: 1.3;
+    letter-spacing: 0.01em;
+}
+
+.rb-modal-language-switcher {
+    flex-shrink: 0;
+}
+
+.rb-modal-language-switcher .rb-lang-select {
+    background: rgba(255, 255, 255, 0.08);
+    color: #f5f2eb;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.rb-modal-language-switcher .rb-lang-select:hover {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
+.rb-modal-language-switcher .rb-lang-select option {
+    background: #1c1c1c;
+    color: #f5f2eb;
+}
+
+/* Inline Form Header with Language Switcher */
+.rb-inline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 28px;
+}
+
+.rb-inline-header h3 {
+    margin: 0;
+    color: #f5f2eb;
+    font-size: 26px;
+    line-height: 1.3;
+    letter-spacing: 0.01em;
+}
+
+.rb-inline-language-switcher {
+    flex-shrink: 0;
+}
+
+.rb-inline-language-switcher .rb-lang-select {
+    background: rgba(255, 255, 255, 0.08);
+    color: #f5f2eb;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.rb-inline-language-switcher .rb-lang-select:hover {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
+.rb-inline-language-switcher .rb-lang-select option {
+    background: #1c1c1c;
+    color: #f5f2eb;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .rb-modal-header,
+    .rb-inline-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    
+    .rb-modal-header h2,
+    .rb-inline-header h3 {
+        font-size: 20px;
+    }
+    
+    .rb-modal-language-switcher,
+    .rb-inline-language-switcher {
+        margin-left: 0;
+        width: 100%;
+    }
+    
+    .rb-modal-language-switcher .rb-lang-select,
+    .rb-inline-language-switcher .rb-lang-select {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .rb-modal-header {
+        padding: 15px 20px;
+    }
+
+    .rb-modal-header h2,
+    .rb-inline-header h3 {
+        font-size: 18px;
+    }
+}
+
+/* Manager Portal Styles */
+.rb-manager {
+    background: linear-gradient(145deg, #111111 0%, #1c1814 100%);
+    border: 1px solid rgba(120, 90, 60, 0.45);
+    border-radius: 16px;
+    padding: 28px;
+    color: #f5f3ef;
+    margin: 30px auto;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45);
+    max-width: 1200px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.rb-manager-login {
+    max-width: 420px;
+    padding: 32px;
+    border-radius: 20px;
+    margin: 40px auto;
+    background: linear-gradient(160deg, #121212 0%, #1f1a17 100%);
+    border: 1px solid rgba(120, 90, 60, 0.35);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+}
+
+.rb-manager-login h2 {
+    font-size: 26px;
+    margin-bottom: 24px;
+    color: #f7f3e9;
+    text-align: center;
+}
+
+.rb-manager-login .rb-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+.rb-manager-login label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #d9d2c7;
+}
+
+.rb-manager-login input,
+.rb-manager-login select {
+    width: 100%;
+    min-height: 46px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(18, 18, 18, 0.9);
+    color: #f5f3ef;
+    padding: 12px 14px;
+    font-size: 15px;
+    line-height: 1.45;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rb-manager-login .rb-portal-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+.rb-manager-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+}
+
+.rb-manager-header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex: 1;
+    min-width: 220px;
+}
+
+.rb-manager-header-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 12px;
+    min-width: 200px;
+}
+
+.rb-manager-language-switcher {
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.rb-manager-language-switcher .rb-language-switcher-dropdown {
+    width: 100%;
+    max-width: 220px;
+}
+
+.rb-manager-language-switcher .rb-lang-select {
+    width: 100%;
+    background: rgba(20, 20, 20, 0.92);
+    color: #f5f3ef;
+    border: 1px solid rgba(181, 145, 106, 0.35);
+    border-radius: 12px;
+    padding: 10px 14px;
+    min-height: 44px;
+    line-height: 1.45;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rb-manager-language-switcher .rb-lang-select:hover {
+    border-color: rgba(181, 145, 106, 0.55);
+}
+
+.rb-manager-language-switcher .rb-lang-select:focus {
+    outline: none;
+    border-color: #b5916a;
+    box-shadow: 0 0 0 2px rgba(181, 145, 106, 0.25);
+}
+
+.rb-manager-header h2 {
+    margin: 0;
+    font-size: 26px;
+    color: #f7f3e9;
+}
+
+.rb-manager-user {
+    font-size: 15px;
+    color: #d8cfc0;
+}
+
+.rb-manager-location-switcher form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+}
+
+.rb-manager-location-switcher select {
+    flex: 1 1 200px;
+    min-width: 200px;
+    width: 100%;
+    background: rgba(20, 20, 20, 0.92);
+    color: #f5f3ef;
+    border: 1px solid rgba(181, 145, 106, 0.35);
+    border-radius: 12px;
+    padding: 10px 14px;
+    min-height: 44px;
+    line-height: 1.45;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rb-manager-location-switcher select:focus {
+    outline: none;
+    border-color: #b5916a;
+    box-shadow: 0 0 0 2px rgba(181, 145, 106, 0.25);
+}
+
+.rb-manager-location-languages {
+    color: #d8cfc0;
+    margin: 0;
+}
+
+.rb-manager-nav a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    border-radius: 12px;
+    text-decoration: none;
+    transition: all 0.2s ease-in-out;
+    border: 1px solid rgba(181, 145, 106, 0.28);
+    background: rgba(22, 22, 22, 0.94);
+    color: #f8f6f2;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+.rb-manager-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 28px;
+    flex-wrap: wrap;
+}
+
+.rb-manager-sidebar {
+    width: 260px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(181, 145, 106, 0.25);
+    border-radius: 14px;
+    padding: 22px;
+    flex: 1 1 260px;
+}
+
+.rb-manager-location-card {
+    background: linear-gradient(155deg, rgba(18, 18, 18, 0.95) 0%, rgba(33, 27, 22, 0.9) 100%);
+    border: 1px solid rgba(181, 145, 106, 0.3);
+    border-radius: 14px;
+    padding: 20px;
+    font-size: 14px;
+    color: #e4ded3;
+    line-height: 1.6;
+}
+
+.rb-manager-location-card h3 {
+    margin: 0 0 12px;
+    font-size: 18px;
+    color: #f7f3e9;
+}
+
+.rb-manager-location-card p {
+    margin: 4px 0;
+}
+
+.rb-manager-location-notes {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 13px;
+    color: #c5bbac;
+}
+
+.rb-manager-nav ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0;
+    margin: 0;
+}
+
+.rb-manager-nav li.active a,
+.rb-manager-nav li a:hover {
+    background: linear-gradient(135deg, #8b6f47, #c7a97a);
+    color: #12110f;
+    border-color: rgba(255, 255, 255, 0.35);
+}
+
+.rb-manager-add-table {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-end;
+    background: rgba(24, 24, 24, 0.92);
+    border: 1px solid rgba(181, 145, 106, 0.25);
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 18px;
+}
+
+.rb-manager-add-table label {
+    flex: 1 1 160px;
+    color: #f6eddd;
+    font-weight: 600;
+}
+
+.rb-manager-add-table input {
+    width: 100%;
+}
+
+.rb-manager-content {
+    flex: 1 1 520px;
+    min-width: 0;
+}
+
+.rb-manager-section {
+    margin-top: 10px;
+}
+
+.rb-manager-bookings-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(18, 18, 18, 0.9);
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid rgba(181, 145, 106, 0.25);
+}
+
+.rb-manager-bookings-table th,
+.rb-manager-bookings-table td {
+    padding: 16px 18px;
+    border-bottom: 1px solid rgba(181, 145, 106, 0.15);
+    text-align: left;
+}
+
+.rb-manager-bookings-table td {
+    color: #f6f3ee;
+    vertical-align: top;
+}
+
+.rb-manager-bookings-table th {
+    background: rgba(181, 145, 106, 0.18);
+    font-weight: 600;
+    color: #1b1611;
+    text-transform: uppercase;
+    font-size: 12px;
+}
+
+.rb-manager-bookings-table tbody tr:hover {
+    background: rgba(181, 145, 106, 0.12);
+}
+
+.rb-manager-note {
+    margin-top: 6px;
+    font-size: 13px;
+    color: #d9cbb6;
+}
+
+.rb-manager-note-internal {
+    color: #8faee0;
+}
+
+.rb-manager-empty {
+    text-align: center;
+    padding: 32px !important;
+    color: #d1c6bb;
+}
+
+.rb-manager-bookings-table-wrapper {
+    overflow-x: auto;
+}
+
+.rb-manager-form-grid,
+.rb-manager-create .rb-form-grid,
+.rb-manager-settings-grid,
+.rb-manager-settings .rb-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.rb-manager-create label,
+.rb-manager-form-grid label,
+.rb-manager-settings-grid label,
+.rb-manager-settings label,
+.rb-manager-customers label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #f6eddd;
+}
+
+.rb-manager-create input,
+.rb-manager-create select,
+.rb-manager-create textarea,
+.rb-manager-form-grid input,
+.rb-manager-form-grid select,
+.rb-manager-form-grid textarea,
+.rb-manager-settings-grid input,
+.rb-manager-settings-grid select,
+.rb-manager-settings-grid textarea,
+.rb-manager-settings input,
+.rb-manager-settings select,
+.rb-manager-settings textarea {
+    background: rgba(19, 19, 19, 0.92);
+    border: 1px solid rgba(181, 145, 106, 0.28);
+    border-radius: 12px;
+    padding: 12px 14px;
+    color: #f7f4ef;
+    font-size: 14px;
+    min-height: 44px;
+    line-height: 1.45;
+    width: 100%;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rb-manager-create textarea,
+.rb-manager-form-grid textarea,
+.rb-manager-settings textarea {
+    min-height: 88px;
+    resize: vertical;
+}
+
+.rb-manager input::placeholder,
+.rb-manager textarea::placeholder,
+.rb-manager select::placeholder {
+    color: rgba(245, 243, 239, 0.6);
+}
+
+.rb-manager-create input:focus,
+.rb-manager-create select:focus,
+.rb-manager-create textarea:focus,
+.rb-manager-form-grid input:focus,
+.rb-manager-form-grid select:focus,
+.rb-manager-form-grid textarea:focus,
+.rb-manager-settings-grid input:focus,
+.rb-manager-settings-grid select:focus,
+.rb-manager-settings-grid textarea:focus,
+.rb-manager-settings input:focus,
+.rb-manager-settings select:focus,
+.rb-manager-settings textarea:focus,
+.rb-manager-filter-grid input:focus,
+.rb-manager-filter-grid select:focus,
+.rb-manager-login input:focus,
+.rb-manager-login select:focus,
+.rb-manager-location-switcher select:focus {
+    outline: none;
+    border-color: #b5916a;
+    box-shadow: 0 0 0 2px rgba(181, 145, 106, 0.25);
+}
+
+.rb-manager-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 15px 0;
+    font-size: 14px;
+}
+
+.rb-manager-checkbox input {
+    width: 18px;
+    height: 18px;
+}
+
+.rb-manager-language-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.rb-manager-language-title {
+    font-weight: 600;
+    color: #f7f3e9;
+    margin: 0;
+}
+
+.rb-manager-language-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.rb-manager-language-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(181, 145, 106, 0.35);
+    background: rgba(19, 19, 19, 0.85);
+    color: #f7f3e9;
+    font-size: 14px;
+}
+
+.rb-manager-language-item input {
+    width: auto;
+    margin: 0;
+}
+
+.rb-manager-language-flag {
+    font-size: 18px;
+    line-height: 1;
+}
+
+.rb-manager-language-name {
+    font-weight: 500;
+}
+
+.rb-manager-wide {
+    grid-column: 1 / -1;
+}
+
+.rb-manager-actions-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+.rb-manager-actions {
+    min-width: 260px;
+}
+
+.rb-manager-action-stack {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    width: 100%;
+    align-items: stretch;
+}
+
+.rb-manager-action-stack .rb-btn-primary,
+.rb-manager-action-stack .rb-btn-secondary,
+.rb-manager-action-stack .rb-btn-danger,
+.rb-manager-action-stack .rb-btn-success {
+    width: 100%;
+    justify-content: center;
+}
+
+.rb-manager-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.rb-manager-settings-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.rb-manager-settings-tab {
+    background: #1e1e1e;
+    border: 1px solid #333333;
+    border-radius: 999px;
+    padding: 8px 18px;
+    color: #f0f0f0;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.rb-manager-settings-tab:hover,
+.rb-manager-settings-tab.active {
+    background: linear-gradient(135deg, #8b6f47, #bfa678);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: #111111;
+}
+
+.rb-manager-settings-panels {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 24px;
+}
+
+.rb-manager-settings-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.rb-manager-settings-panel[hidden] {
+    display: none !important;
+}
+
+.rb-manager-toggle-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.rb-manager-toggle-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #d8cfc0;
+}
+
+.rb-manager-settings small {
+    font-size: 12px;
+    color: rgba(239, 234, 226, 0.7);
+}
+
+.rb-manager-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 14px;
+    margin: 16px 0;
+}
+
+.rb-manager-stat-card {
+    background: rgba(22, 22, 22, 0.92);
+    border: 1px solid rgba(181, 145, 106, 0.25);
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+}
+
+.rb-manager-stat-label {
+    display: block;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #d9ccb9;
+    margin-bottom: 6px;
+}
+
+.rb-manager-stat-value {
+    font-size: 22px;
+    font-weight: 600;
+    color: #fdfaf6;
+}
+
+.rb-manager-tip,
+.rb-manager-warning {
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 15px;
+    font-size: 14px;
+}
+
+.rb-manager-tip {
+    background: rgba(139, 111, 71, 0.15);
+    border: 1px solid rgba(139, 111, 71, 0.4);
+}
+
+.rb-manager-warning {
+    background: rgba(255, 99, 71, 0.12);
+    border: 1px solid rgba(255, 99, 71, 0.4);
+}
+
+.rb-manager-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+}
+
+.rb-manager-modal[hidden] {
+    display: none !important;
+}
+
+.rb-manager-modal-dialog {
+    background: #161616;
+    border-radius: 16px;
+    padding: 28px;
+    width: min(640px, 92vw);
+    max-height: 90vh;
+    overflow-y: auto;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+    position: relative;
+}
+
+.rb-manager-modal h3 {
+    margin-top: 0;
+    margin-bottom: 18px;
+    color: #f7f3e9;
+}
+
+.rb-manager-modal-close {
+    background: transparent;
+    border: none;
+    color: #f0f0f0;
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+    position: absolute;
+    top: 14px;
+    right: 18px;
+}
+
+.rb-manager-modal textarea,
+.rb-manager-modal input,
+.rb-manager-modal select {
+    background: #1e1e1e;
+    border: 1px solid #333333;
+    border-radius: 6px;
+    padding: 10px;
+    color: #f0f0f0;
+    width: 100%;
+}
+
+.rb-manager-modal textarea {
+    resize: vertical;
+}
+
+
+.rb-manager-history {
+    position: fixed;
+    inset: 0;
+    background: rgba(32, 33, 36, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 24px;
+}
+
+.rb-manager-history[hidden] {
+    display: none !important;
+}
+
+.rb-manager-history-inner {
+    background: #ffffff;
+    color: #202124;
+    border-radius: 18px;
+    padding: 28px 32px;
+    max-width: 720px;
+    width: min(720px, 100%);
+    border: 1px solid rgba(26, 115, 232, 0.16);
+    box-shadow: 0 24px 48px rgba(26, 115, 232, 0.18);
+    position: relative;
+}
+
+.rb-manager-history-close {
+    background: rgba(26, 115, 232, 0.1);
+    border: none;
+    color: #1a73e8;
+    font-size: 22px;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    cursor: pointer;
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.rb-manager-history-close:hover,
+.rb-manager-history-close:focus-visible {
+    background: rgba(26, 115, 232, 0.18);
+    color: #0b57d0;
+    outline: none;
+}
+
+.rb-manager-history-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.rb-manager-history-table th,
+.rb-manager-history-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(26, 115, 232, 0.12);
+    text-align: left;
+    font-size: 13px;
+}
+
+.rb-manager-history-table th {
+    font-weight: 600;
+    color: #0b57d0;
+    background: rgba(26, 115, 232, 0.08);
+}
+
+.rb-manager-history-table tbody tr:nth-child(even) {
+    background: rgba(26, 115, 232, 0.04);
+}
+
+.rb-manager-history-table tbody tr:hover {
+    background: rgba(26, 115, 232, 0.1);
+}
+
+.rb-manager-history-table td:last-child {
+    font-weight: 600;
+    color: #1a73e8;
+}
+
+.rb-status-available {
+    background: rgba(46, 204, 113, 0.2);
+    color: #2ecc71;
+}
+
+.rb-status-unavailable {
+    background: rgba(231, 76, 60, 0.2);
+    color: #e74c3c;
+}
+
+.rb-status-vip {
+    background: rgba(243, 156, 18, 0.2);
+    color: #f1c40f;
+    border-radius: 999px;
+    padding: 4px 10px;
+}
+
+.rb-status-blacklist {
+    background: rgba(231, 76, 60, 0.25);
+    color: #ff6b6b;
+    border-radius: 999px;
+    padding: 4px 10px;
+}
+
+.rb-status-warning {
+    background: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
+    border-radius: 999px;
+    padding: 4px 10px;
+}
+
+.rb-manager .rb-customer-inbox {
+    margin-top: 20px;
+}
+
+.rb-manager .rb-inbox-toolbar {
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+}
+
+.rb-manager .rb-inbox-toolbar__form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-end;
+}
+
+.rb-manager .rb-inbox-toolbar__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 180px;
+    flex: 1 1 180px;
+}
+
+.rb-manager .rb-inbox-toolbar__field label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #5b6570;
+    letter-spacing: 0.04em;
+}
+
+.rb-manager .rb-inbox-toolbar__field input,
+.rb-manager .rb-inbox-toolbar__field select {
+    padding: 8px 12px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    font-size: 14px;
+    background: #ffffff;
+    color: #1f2933;
+}
+
+.rb-manager .rb-inbox-toolbar__actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.rb-manager .rb-inbox-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 20px;
+}
+
+.rb-manager .rb-inbox-sidebar {
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.04);
+}
+
+.rb-manager .rb-inbox-sidebar__title {
+    margin: 0;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #4b5563;
+}
+
+.rb-manager .rb-inbox-sidebar__menu {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.rb-manager .rb-inbox-sidebar__item {
+    border-radius: 8px;
+}
+
+.rb-manager .rb-inbox-sidebar__item.is-active {
+    background: #f4f7ff;
+}
+
+.rb-manager .rb-inbox-sidebar__link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    color: #1f2933;
+    text-decoration: none;
+    border-radius: 8px;
+    transition: background 0.2s ease;
+}
+
+.rb-manager .rb-inbox-sidebar__link:hover {
+    background: #eef2ff;
+}
+
+.rb-manager .rb-inbox-sidebar__icon {
+    font-size: 16px;
+}
+
+.rb-manager .rb-inbox-sidebar__label {
+    flex: 1;
+    font-weight: 600;
+}
+
+.rb-manager .rb-inbox-sidebar__count {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+}
+
+.rb-manager .rb-inbox-sidebar__stats {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+.rb-manager .rb-inbox-sidebar__stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+    color: #475569;
+}
+
+.rb-manager .rb-inbox-sidebar__stat strong {
+    font-size: 16px;
+    color: #111827;
+}
+
+.rb-manager .rb-inbox-sidebar__note {
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.rb-manager .rb-inbox-sidebar__note--tip {
+    background: #fefce8;
+    border: 1px solid #fcd34d;
+    color: #92400e;
+}
+
+.rb-manager .rb-inbox-sidebar__note--warning {
+    background: #fef2f2;
+    border: 1px solid #f87171;
+    color: #991b1b;
+}
+
+.rb-manager .rb-inbox-sidebar__footer {
+    font-size: 13px;
+    color: #4b5563;
+}
+
+.rb-manager .rb-inbox-main {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.rb-manager .rb-inbox-main__header {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2933;
+}
+
+.rb-manager .rb-inbox-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.rb-manager .rb-inbox-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 14px 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #ffffff;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.rb-manager .rb-inbox-item:hover {
+    border-color: #c7d2fe;
+    box-shadow: 0 12px 24px rgba(79, 70, 229, 0.08);
+    transform: translateY(-1px);
+}
+
+.rb-manager .rb-inbox-item.is-active {
+    border-color: #6366f1;
+    box-shadow: 0 16px 30px rgba(99, 102, 241, 0.15);
+}
+
+.rb-manager .rb-inbox-item__content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+}
+
+.rb-manager .rb-inbox-item__row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.rb-manager .rb-inbox-item__title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #111827;
+}
+
+.rb-manager .rb-inbox-item__meta {
+    margin-left: auto;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.rb-manager .rb-inbox-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+}
+
+.rb-manager .rb-inbox-badge--vip {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.rb-manager .rb-inbox-badge--danger {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.rb-manager .rb-inbox-badge--success {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.rb-manager .rb-inbox-badge--warning {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.rb-manager .rb-inbox-badge--note {
+    background: #e0f2fe;
+    color: #0369a1;
+}
+
+.rb-manager .rb-inbox-item__metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-end;
+    min-width: 180px;
+}
+
+.rb-manager .rb-inbox-metric {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.rb-manager .rb-inbox-metric__label {
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.rb-manager .rb-inbox-metric strong {
+    font-size: 16px;
+    color: #1f2933;
+}
+
+.rb-manager .rb-inbox-metric small {
+    color: #9ca3af;
+}
+
+.rb-manager .rb-inbox-empty {
+    padding: 40px 20px;
+    text-align: center;
+    border: 1px dashed #cbd5f5;
+    border-radius: 12px;
+    color: #6b7280;
+    background: #f8fafc;
+}
+
+.rb-manager .rb-inbox-detail {
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 20px;
+    min-height: 320px;
+    box-shadow: 0 16px 30px rgba(15, 23, 42, 0.06);
+}
+
+.rb-manager .rb-inbox-detail-empty {
+    text-align: center;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.rb-manager .rb-inbox-detail-body {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.rb-manager .rb-inbox-detail-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: flex-start;
+}
+
+.rb-manager .rb-inbox-detail-header h2 {
+    margin: 0 0 6px;
+    font-size: 20px;
+    color: #111827;
+}
+
+.rb-manager .rb-inbox-detail-subtitle {
+    display: flex;
+    gap: 12px;
+    font-size: 13px;
+}
+
+.rb-manager .rb-inbox-detail-contact {
+    color: #2563eb;
+    text-decoration: none;
+}
+
+.rb-manager .rb-inbox-detail-contact:hover {
+    text-decoration: underline;
+}
+
+.rb-manager .rb-inbox-detail-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.rb-manager .rb-inbox-detail-tags[hidden] {
+    display: none !important;
+}
+
+.rb-manager .rb-inbox-detail-status {
+    display: flex;
+    gap: 18px;
+    align-items: center;
+}
+
+.rb-manager .rb-inbox-detail-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.rb-manager .rb-inbox-detail-stat strong {
+    font-size: 20px;
+    color: #111827;
+}
+
+.rb-manager .rb-inbox-detail-stat small {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.rb-manager .rb-customer-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 18px;
+    font-size: 13px;
+    color: #374151;
+}
+
+.rb-manager .rb-inbox-detail-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.rb-manager .rb-manager-note-field {
+    width: 100%;
+    min-height: 120px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 14px;
+    resize: vertical;
+    color: #111827;
+}
+
+.rb-manager .rb-manager-note-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.rb-manager .rb-manager-note-status {
+    font-size: 12px;
+    color: #10b981;
+}
+
+.rb-manager .rb-manager-note-status.is-error {
+    color: #ef4444;
+}
+
+.rb-manager .rb-manager-detail-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.rb-manager .rb-manager-detail-actions .rb-btn-primary,
+.rb-manager .rb-manager-detail-actions .rb-btn-secondary,
+.rb-manager .rb-manager-detail-actions .rb-btn-danger {
+    font-size: 13px;
+    padding: 8px 14px;
+}
+
+@media (max-width: 1024px) {
+    .rb-manager .rb-inbox-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .rb-manager .rb-inbox-detail {
+        order: 3;
+    }
+}
+
+@media (max-width: 768px) {
+    .rb-manager .rb-inbox-toolbar__actions {
+        width: 100%;
+        justify-content: flex-start;
+        margin-left: 0;
+    }
+
+    .rb-manager .rb-inbox-toolbar__field {
+        flex: 1 1 100%;
+    }
+
+    .rb-manager .rb-inbox-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .rb-manager .rb-inbox-item__metrics {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 16px;
+        justify-content: flex-start;
+        min-width: 0;
+    }
+
+    .rb-manager .rb-inbox-detail-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .rb-manager .rb-inbox-detail-status {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .rb-manager .rb-customer-detail-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .rb-manager .rb-inbox-toolbar__form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .rb-manager .rb-inbox-toolbar__actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .rb-manager .rb-inbox-detail-stat {
+        align-items: flex-start;
+    }
+}
+
+.rb-portal-result {
+    margin-top: 20px;
+    padding: 12px 15px;
+    border-radius: 6px;
+    display: none;
+}
+
+.rb-portal-result.success {
+    background: rgba(46, 204, 113, 0.15);
+    border: 1px solid rgba(46, 204, 113, 0.4);
+    color: #2ecc71;
+}
+
+.rb-portal-result.error {
+    background: rgba(231, 76, 60, 0.15);
+    border: 1px solid rgba(231, 76, 60, 0.4);
+    color: #e74c3c;
+}
+
+.rb-manager .rb-btn-primary,
+.rb-manager .rb-btn-secondary,
+.rb-manager .rb-btn-danger {
+    padding: 8px 16px !important;
+    font-size: 13px !important;
+    border-radius: 999px !important;
+}
+
+.rb-manager .rb-btn-primary {
+    background: linear-gradient(135deg, #a6784a, #d7bd8e) !important;
+    color: #12110f !important;
+    border: none !important;
+    box-shadow: 0 10px 24px rgba(163, 120, 73, 0.35) !important;
+}
+
+.rb-manager .rb-btn-primary:hover {
+    background: linear-gradient(135deg, #b9895a, #e5cca2) !important;
+}
+
+.rb-manager .rb-btn-danger {
+    background: #c0392b !important;
+    color: #fff !important;
+}
+
+.rb-manager .rb-btn-danger:hover {
+    background: #e74c3c !important;
+}
+
+.rb-manager .rb-btn-secondary {
+    background: rgba(36, 36, 36, 0.9) !important;
+    color: #f2eeea !important;
+    border: 1px solid rgba(181, 145, 106, 0.28) !important;
+}
+
+.rb-manager .rb-btn-secondary:hover {
+    background: rgba(55, 55, 55, 0.95) !important;
+}
+
+#rb-manager-table-feedback,
+#rb-manager-create-feedback,
+#rb-manager-settings-feedback {
+    margin-top: 10px;
+}
+
+@media (max-width: 1024px) {
+    .rb-manager-layout {
+        flex-direction: column;
+    }
+
+    .rb-manager-sidebar {
+        width: 100%;
+    }
+
+    .rb-manager-actions {
+        min-width: 220px;
+    }
+}
+
+@media (max-width: 768px) {
+    .rb-manager {
+        padding: 22px;
+    }
+
+    .rb-manager-nav ul {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .rb-manager-nav li a {
+        border-radius: 8px;
+        justify-content: center;
+    }
+
+    .rb-manager-filter-grid {
+        gap: 14px;
+    }
+
+    .rb-manager-filter-grid,
+    .rb-manager-settings-grid,
+    .rb-manager-form-grid,
+    .rb-manager-create .rb-form-grid,
+    .rb-manager-settings .rb-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .rb-manager-modal-dialog {
+        padding: 22px;
+    }
+
+    .rb-manager-action-stack {
+        grid-template-columns: 1fr;
+    }
+
+    .rb-manager-actions {
+        min-width: 0;
+    }
+}
+
+@media (max-width: 600px) {
+    .rb-manager {
+        padding: 18px;
+        margin: 20px auto;
+    }
+
+    .rb-manager-login {
+        padding: 26px;
+        margin: 24px auto;
+    }
+
+    .rb-manager-location-switcher form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .rb-manager-location-switcher select {
+        min-width: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .rb-manager-nav li a {
+        justify-content: center;
+    }
+
+    .rb-manager .rb-btn-primary,
+    .rb-manager .rb-btn-secondary,
+    .rb-manager .rb-btn-danger {
+        width: 100%;
+        text-align: center;
+    }
+}
