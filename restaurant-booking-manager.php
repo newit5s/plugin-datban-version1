@@ -131,7 +131,7 @@ function rb_admin_enqueue_scripts($hook) {
     if (strpos($hook, 'restaurant-booking') !== false || strpos($hook, 'rb-') !== false) {
         wp_enqueue_style('rb-admin-css', RB_PLUGIN_URL . 'assets/css/admin.css', array(), RB_VERSION);
         wp_enqueue_script('rb-admin-js', RB_PLUGIN_URL . 'assets/js/admin.js', array('jquery'), RB_VERSION, true);
-        
+
         wp_localize_script('rb-admin-js', 'rb_ajax', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('rb_admin_nonce'),
@@ -139,6 +139,56 @@ function rb_admin_enqueue_scripts($hook) {
             'translations' => RB_I18n::get_instance()->get_js_translations(),
             'current_language' => rb_get_current_language()
         ));
+
+        $page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';
+        if ('rb-timeline' === $page) {
+            $timeline_style_path = RB_PLUGIN_DIR . 'assets/css/timeline.css';
+            $timeline_style_version = file_exists($timeline_style_path) ? filemtime($timeline_style_path) : RB_VERSION;
+
+            wp_enqueue_style(
+                'rb-timeline-css',
+                RB_PLUGIN_URL . 'assets/css/timeline.css',
+                array('rb-admin-css'),
+                $timeline_style_version
+            );
+
+            $timeline_script_path = RB_PLUGIN_DIR . 'assets/js/timeline-view.js';
+            $timeline_script_version = file_exists($timeline_script_path) ? filemtime($timeline_script_path) : RB_VERSION;
+
+            wp_enqueue_script(
+                'rb-timeline-view',
+                RB_PLUGIN_URL . 'assets/js/timeline-view.js',
+                array('jquery'),
+                $timeline_script_version,
+                true
+            );
+
+            wp_localize_script('rb-timeline-view', 'rbTimelineViewL10n', array(
+                'timeLabel' => esc_html__('Time', 'restaurant-booking'),
+                'tableLabel' => esc_html__('Table', 'restaurant-booking'),
+                'guestsLabel' => esc_html__('guests', 'restaurant-booking'),
+                'statuses' => array(
+                    'available' => esc_html__('Available', 'restaurant-booking'),
+                    'occupied' => esc_html__('Occupied', 'restaurant-booking'),
+                    'cleaning' => esc_html__('Cleaning', 'restaurant-booking'),
+                    'reserved' => esc_html__('Reserved', 'restaurant-booking'),
+                ),
+                'messages' => array(
+                    'loading' => esc_html__('Loading timeline...', 'restaurant-booking'),
+                    'noTables' => esc_html__('No tables found for this location.', 'restaurant-booking'),
+                    'noBookings' => esc_html__('No bookings for the selected time range.', 'restaurant-booking'),
+                    'loadError' => esc_html__('Unable to load timeline data. Please try again.', 'restaurant-booking'),
+                    'statusUpdated' => esc_html__('Table status updated.', 'restaurant-booking'),
+                    'statusUpdateError' => esc_html__('Could not update table status. Please try again.', 'restaurant-booking'),
+                ),
+                'labels' => array(
+                    'lastUpdatedLabel' => esc_html__('Last updated:', 'restaurant-booking'),
+                ),
+                'buttons' => array(
+                    'refresh' => esc_html__('Refresh', 'restaurant-booking'),
+                ),
+            ));
+        }
     }
 }
 
