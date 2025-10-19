@@ -1,3 +1,5 @@
+@import url('timeline-booking.css');
+
 :root {
     --rb-timeline-slot-height: 42px;
     --rb-color-available: #2ecc71;

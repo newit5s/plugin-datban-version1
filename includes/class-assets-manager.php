@@ -58,6 +58,16 @@ class RB_Assets_Manager {
             $style_version
         );
 
+        $timeline_style_path = RB_PLUGIN_DIR . 'assets/css/timeline-booking.css';
+        if (file_exists($timeline_style_path)) {
+            wp_enqueue_style(
+                'rb-timeline-booking',
+                RB_PLUGIN_URL . 'assets/css/timeline-booking.css',
+                array('rb-new-frontend'),
+                filemtime($timeline_style_path)
+            );
+        }
+
         $script_path = RB_PLUGIN_DIR . 'assets/js/new-booking.js';
         $script_version = file_exists($script_path) ? filemtime($script_path) : RB_VERSION;
         wp_enqueue_script(
@@ -68,6 +78,37 @@ class RB_Assets_Manager {
             true
         );
 
+        $timeline_script_path = RB_PLUGIN_DIR . 'assets/js/timeline-booking.js';
+        if (file_exists($timeline_script_path)) {
+            wp_enqueue_script(
+                'rb-timeline-booking',
+                RB_PLUGIN_URL . 'assets/js/timeline-booking.js',
+                array('jquery', 'rb-new-booking'),
+                filemtime($timeline_script_path),
+                true
+            );
+        }
+
+        $locations_data = array();
+        if (!class_exists('RB_Location')) {
+            require_once RB_PLUGIN_DIR . 'includes/class-location.php';
+        }
+
+        $location_helper = new RB_Location();
+        $locations = method_exists($location_helper, 'all') ? $location_helper->all() : array();
+
+        if (!empty($locations)) {
+            foreach ($locations as $location) {
+                $locations_data[] = array(
+                    'id' => isset($location->id) ? (int) $location->id : 0,
+                    'name' => isset($location->name) ? $location->name : '',
+                    'opening_time' => isset($location->opening_time) ? $location->opening_time : '09:00',
+                    'closing_time' => isset($location->closing_time) ? $location->closing_time : '22:00',
+                    'time_slot_interval' => isset($location->time_slot_interval) ? (int) $location->time_slot_interval : 30,
+                );
+            }
+        }
+
         wp_localize_script('rb-new-booking', 'rbBookingAjax', array(
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('rb_frontend_nonce'),
@@ -75,6 +116,7 @@ class RB_Assets_Manager {
             'languageAction' => 'rb_switch_language',
             'shouldReloadOnLanguageChange' => true,
             'currentLanguage' => rb_get_current_language(),
+            'locations' => $locations_data,
         ));
 
         wp_localize_script('rb-new-booking', 'rbBookingStrings', array(
@@ -95,6 +137,13 @@ class RB_Assets_Manager {
             'languageSwitching' => rb_t('language_switching', __('Switching language…', 'restaurant-booking')),
             'languageSwitched' => rb_t('language_switched', __('Language switched', 'restaurant-booking')),
             'languageSwitchFailed' => rb_t('language_switch_failed', __('Could not change language. Please try again.', 'restaurant-booking')),
+            'availability_available' => rb_t('availability_available', __('✅ Tables available!', 'restaurant-booking')),
+            'availability_not_available' => rb_t('availability_not_available', __('❌ No tables available at this time', 'restaurant-booking')),
+            'availability_tables_count' => rb_t('availability_tables_count', __('{count} tables available', 'restaurant-booking')),
+            'alternative_suggestions' => rb_t('alternative_suggestions', __('💡 Suggestions:', 'restaurant-booking')),
+            'continue_booking' => rb_t('continue_booking', __('Continue booking', 'restaurant-booking')),
+            'select_time_hint' => rb_t('select_time_hint', __('-- Select time --', 'restaurant-booking')),
+            'select_duration_hint' => rb_t('select_duration_hint', __('-- Select duration --', 'restaurant-booking'))
         ));
     }
 

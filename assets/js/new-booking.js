@@ -12,6 +12,8 @@
         currentStep: 1,
         selectedData: {},
         currentLanguage: '',
+        timelineEnabled: false,
+        timelineEventsBound: false,
         
         // Localized strings (will be populated by WordPress)
         strings: window.rbBookingStrings || {
@@ -46,9 +48,11 @@
             if (!this.currentLanguage) {
                 this.currentLanguage = $('.rb-new-lang-select').first().val() || '';
             }
+            this.timelineEnabled = typeof window.rbTimelineBookingInstance !== 'undefined';
             this.bindEvents();
             this.setInitialValues();
             this.preventBodyScroll();
+            this.checkTimelineIntegration();
         },
 
         bindEvents: function() {
@@ -62,23 +66,20 @@
             // Language switcher
             $(document).on('change', '.rb-new-lang-select', this.changeLanguage.bind(this));
 
-            // Availability form
-            $(document).on('submit', '#rb-new-availability-form', this.checkAvailability.bind(this));
-
             // Booking form
             $(document).on('submit', '#rb-new-booking-form', this.submitBooking.bind(this));
 
             // Back button
             $(document).on('click', '#rb-new-back-btn', this.goBackToStep1.bind(this));
 
-            // Date/location change - update time slots
-            $(document).on('change', '#rb-new-date, #rb-new-location, #rb-new-guests', this.updateTimeSlots.bind(this));
-
-            // Suggestion buttons
-            $(document).on('click', '.rb-new-suggestion-btn', this.selectSuggestedTime.bind(this));
-
             // Keyboard navigation
             $(document).on('keydown', this.handleKeydown.bind(this));
+
+            // Timeline integration events
+            $(document).on('rbTimeline:ready', this.onTimelineReady.bind(this));
+            if (this.timelineEnabled) {
+                this.bindTimelineEvents();
+            }
         },
 
         setInitialValues: function() {
@@ -87,9 +88,52 @@
             tomorrow.setDate(tomorrow.getDate() + 1);
             const dateString = tomorrow.toISOString().split('T')[0];
             $('#rb-new-date').val(dateString);
-            
-            // Load initial time slots
-            this.updateTimeSlots();
+        },
+
+        checkTimelineIntegration: function() {
+            if (this.timelineEnabled) {
+                this.bindTimelineEvents();
+            }
+        },
+
+        onTimelineReady: function(event, instance) {
+            if (instance && !this.timelineEnabled) {
+                this.timelineEnabled = true;
+                this.bindTimelineEvents();
+            }
+        },
+
+        bindTimelineEvents: function() {
+            if (this.timelineEventsBound) {
+                return;
+            }
+
+            $(document).on('rbTimeline:availabilitySuccess', this.handleTimelineSuccess.bind(this));
+            $(document).on('rbTimeline:continueBooking', this.handleTimelineContinue.bind(this));
+            $(document).on('rbTimeline:availabilityFailed', this.handleTimelineFailure.bind(this));
+            this.timelineEventsBound = true;
+        },
+
+        handleTimelineSuccess: function(event, data) {
+            if (!data) {
+                return;
+            }
+
+            this.storeSelectedData(data);
+            this.goToStep2();
+        },
+
+        handleTimelineContinue: function(event, data) {
+            if (!data) {
+                return;
+            }
+
+            this.storeSelectedData(data);
+            this.goToStep2();
+        },
+
+        handleTimelineFailure: function() {
+            this.currentStep = 1;
         },
 
         preventBodyScroll: function() {
@@ -287,7 +331,7 @@
         },
 
         validateAvailabilityForm: function() {
-            const requiredFields = ['#rb-new-location', '#rb-new-date', '#rb-new-time', '#rb-new-guests'];
+            const requiredFields = ['#rb-new-location', '#rb-new-date', '#rb-checkin-time', '#rb-new-guests', '#rb-duration'];
             let isValid = true;
 
             requiredFields.forEach(selector => {
@@ -308,12 +352,19 @@
         },
 
         getAvailabilityFormData: function() {
+            const checkinTime = $('#rb-checkin-time').val();
+            const duration = parseFloat($('#rb-duration').val());
+            const checkoutMinutes = this.timeToMinutes(checkinTime) + (duration * 60);
+            const checkoutTime = this.minutesToTime(checkoutMinutes);
+
             return {
                 action: 'rb_check_availability',
                 nonce: window.rbBookingAjax.nonce,
                 location_id: $('#rb-new-location').val(),
                 date: $('#rb-new-date').val(),
-                time: $('#rb-new-time').val(),
+                checkin_time: checkinTime,
+                checkout_time: checkoutTime,
+                duration: duration,
                 guests: $('#rb-new-guests').val()
             };
         },
@@ -369,25 +420,43 @@
 
         selectSuggestedTime: function(e) {
             const suggestedTime = $(e.target).data('time');
-            $('#rb-new-time').val(suggestedTime);
-            
+            $('#rb-checkin-time').val(suggestedTime).trigger('change');
+
             // Highlight the selected suggestion
             $('.rb-new-suggestion-btn').removeClass('selected');
             $(e.target).addClass('selected');
-            
+
             // Auto-submit after selection
             setTimeout(() => {
                 $('#rb-new-availability-form').submit();
             }, 500);
         },
 
-        storeSelectedData: function() {
+        storeSelectedData: function(payload) {
+            if (payload) {
+                this.selectedData = {
+                    locationId: payload.locationId || $('#rb-new-location').val(),
+                    locationName: payload.locationName || $('#rb-new-location option:selected').text(),
+                    date: payload.date || $('#rb-new-date').val(),
+                    checkin: payload.checkin_time || $('#rb-checkin-time').val(),
+                    checkout: payload.checkout_time || $('#rb-display-checkout').text(),
+                    cleanup: payload.cleanup_time || $('#rb-display-cleanup').text(),
+                    guests: payload.guests || $('#rb-new-guests').val(),
+                    duration: payload.duration || $('#rb-duration').val(),
+                    availableTables: payload.available_tables || payload.available_count || ''
+                };
+                return;
+            }
+
             this.selectedData = {
                 locationId: $('#rb-new-location').val(),
                 locationName: $('#rb-new-location option:selected').text(),
                 date: $('#rb-new-date').val(),
-                time: $('#rb-new-time').val(),
-                guests: $('#rb-new-guests').val()
+                checkin: $('#rb-checkin-time').val(),
+                checkout: $('#rb-display-checkout').text(),
+                cleanup: $('#rb-display-cleanup').text(),
+                guests: $('#rb-new-guests').val(),
+                duration: $('#rb-duration').val()
             };
         },
 
@@ -397,6 +466,8 @@
 
             const $step1 = $('.rb-new-step[data-step="1"]');
             const $step2 = $('.rb-new-step[data-step="2"]');
+
+            $('#rb-availability-message').removeClass('is-visible').attr('hidden', true);
 
             // Ensure the second step can be displayed by removing the hidden attribute
             $step2.stop(true, true).hide().removeAttr('hidden');
@@ -415,19 +486,25 @@
         },
 
         updateBookingSummary: function() {
-            const { locationName, date, time, guests } = this.selectedData;
-            
-            $('#rb-new-summary-location').text(locationName);
-            $('#rb-new-summary-datetime').text(`${date} ${time}`);
-            $('#rb-new-summary-guests').text(`${guests} ${this.strings.people}`);
+            const { locationName, date, checkin, checkout, cleanup, guests } = this.selectedData;
+
+            $('#rb-new-summary-location').text(locationName || '');
+            $('#rb-new-summary-date').text(date || '');
+            $('#rb-new-summary-checkin').text(checkin || '');
+            $('#rb-new-summary-checkout').text(checkout || '');
+            $('#rb-new-summary-cleanup').text(cleanup || '');
+            $('#rb-new-summary-guests').text(guests ? `${guests} ${this.strings.people}` : '');
         },
 
         setHiddenFields: function() {
-            const { locationId, date, time, guests } = this.selectedData;
+            const { locationId, date, checkin, checkout, guests, duration } = this.selectedData;
 
             $('#rb-new-hidden-location').val(locationId);
             $('#rb-new-hidden-date').val(date);
-            $('#rb-new-hidden-time').val(time);
+            $('#rb-new-hidden-time').val(checkin);
+            $('#rb-new-hidden-checkin').val(checkin);
+            $('#rb-new-hidden-checkout').val(checkout);
+            $('#rb-new-hidden-duration').val(duration);
             $('#rb-new-hidden-guests').val(guests);
             if (this.currentLanguage) {
                 $('#rb-new-hidden-language').val(this.currentLanguage);
@@ -463,6 +540,10 @@
             this.selectedData = {};
             this.clearAllMessages();
             this.clearForm();
+            $('#rb-availability-message').removeClass('is-visible').attr('hidden', true).empty();
+            $('#rb-display-checkin').text('--:--');
+            $('#rb-display-checkout').text('--:--');
+            $('#rb-display-cleanup').text('--:--');
         },
 
         submitBooking: function(e) {
@@ -608,11 +689,12 @@
 
         handleTimeSlotsResponse: function(response) {
             if (response.success && response.data.slots) {
-                const $timeSelect = $('#rb-new-time');
+                const $timeSelect = $('#rb-checkin-time');
                 const currentTime = $timeSelect.val();
-                
-                $timeSelect.empty().append(`<option value="">${this.strings.selectTime}</option>`);
-                
+
+                const placeholder = this.strings.select_time_hint || this.strings.selectTime;
+                $timeSelect.empty().append(`<option value="">${placeholder}</option>`);
+
                 response.data.slots.forEach(slot => {
                     $timeSelect.append(`<option value="${slot}">${slot}</option>`);
                 });
@@ -665,8 +747,23 @@
             }
         },
 
+        timeToMinutes: function(time) {
+            if (!time || time.indexOf(':') === -1) {
+                return 0;
+            }
+
+            const parts = time.split(':').map(Number);
+            return (parts[0] * 60) + parts[1];
+        },
+
+        minutesToTime: function(minutes) {
+            const hours = Math.floor(minutes / 60) % 24;
+            const mins = minutes % 60;
+            return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+        },
+
         clearAllMessages: function() {
-            $('#rb-new-availability-result, #rb-new-suggestions, #rb-new-booking-result')
+            $('#rb-new-booking-result')
                 .attr('hidden', true)
                 .hide();
         },
