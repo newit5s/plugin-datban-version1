@@ -308,14 +308,192 @@ class RB_Booking {
     
     public function update_booking($booking_id, $data) {
         $table_name = $this->wpdb->prefix . 'rb_bookings';
-        
+
         $result = $this->wpdb->update(
             $table_name,
             $data,
             array('id' => $booking_id)
         );
-        
+
         return $result !== false;
+    }
+
+    public function move_booking($booking_id, $location_id, $date, $checkin_time, $checkout_time = null, $table_id = null, $guest_count = null, $table_number = null) {
+        $booking_id = (int) $booking_id;
+        $location_id = (int) $location_id;
+        $table_id = $table_id !== null ? (int) $table_id : null;
+
+        if ($booking_id <= 0) {
+            return new WP_Error('invalid_booking', __('Invalid booking.', 'restaurant-booking'));
+        }
+
+        $date = sanitize_text_field($date);
+        $checkin_time = sanitize_text_field($checkin_time);
+        $checkout_time = sanitize_text_field($checkout_time);
+
+        if (empty($date) || empty($checkin_time)) {
+            return new WP_Error('invalid_time', __('Booking date and time are required.', 'restaurant-booking'));
+        }
+
+        $booking = $this->get_booking($booking_id);
+        if (!$booking) {
+            return new WP_Error('booking_not_found', __('Booking not found.', 'restaurant-booking'));
+        }
+
+        if ($location_id <= 0) {
+            $location_id = (int) $booking->location_id;
+        }
+
+        if ((int) $booking->location_id !== $location_id) {
+            return new WP_Error('location_mismatch', __('Cannot move booking to a different location.', 'restaurant-booking'));
+        }
+
+        if ($guest_count === null || $guest_count <= 0) {
+            $guest_count = (int) $booking->guest_count;
+        }
+
+        $normalized_checkin = $this->normalize_time_input($checkin_time);
+        if (!$normalized_checkin) {
+            return new WP_Error('invalid_checkin_time', __('Invalid check-in time.', 'restaurant-booking'));
+        }
+
+        $checkin_timestamp = $this->parse_time_to_timestamp($date, $normalized_checkin);
+        if (!$checkin_timestamp) {
+            return new WP_Error('invalid_checkin_time', __('Invalid check-in time.', 'restaurant-booking'));
+        }
+
+        $normalized_checkout = $this->normalize_time_input($checkout_time);
+        if (!$normalized_checkout) {
+            $fallback_checkout = $checkin_timestamp + (2 * HOUR_IN_SECONDS);
+            $normalized_checkout = $this->format_time($fallback_checkout);
+        }
+
+        $checkout_timestamp = $this->parse_time_to_timestamp($date, $normalized_checkout);
+        if (!$checkout_timestamp || $checkout_timestamp <= $checkin_timestamp) {
+            return new WP_Error('invalid_checkout_time', __('Invalid checkout time.', 'restaurant-booking'));
+        }
+
+        $duration_minutes = ($checkout_timestamp - $checkin_timestamp) / MINUTE_IN_SECONDS;
+        if ($duration_minutes < self::MIN_DURATION_MINUTES || $duration_minutes > self::MAX_DURATION_MINUTES) {
+            return new WP_Error('invalid_duration', __('Selected duration is not allowed.', 'restaurant-booking'));
+        }
+
+        if (!$this->is_within_working_hours($date, $checkin_timestamp, $checkout_timestamp, $location_id)) {
+            return new WP_Error('outside_working_hours', __('Selected time is outside of working hours.', 'restaurant-booking'));
+        }
+
+        $window = $this->calculate_time_window($date, $normalized_checkin, $normalized_checkout);
+        if (empty($window['actual_checkin']) || empty($window['actual_checkout'])) {
+            return new WP_Error('invalid_window', __('Unable to calculate booking window.', 'restaurant-booking'));
+        }
+
+        $tables_table = $this->wpdb->prefix . 'rb_tables';
+        $selected_table = null;
+
+        if ($table_id) {
+            $selected_table = $this->wpdb->get_row($this->wpdb->prepare(
+                "SELECT id, table_number, capacity FROM {$tables_table} WHERE id = %d AND location_id = %d",
+                $table_id,
+                $location_id
+            ));
+        } elseif ($table_number !== null) {
+            $selected_table = $this->wpdb->get_row($this->wpdb->prepare(
+                "SELECT id, table_number, capacity FROM {$tables_table} WHERE table_number = %d AND location_id = %d",
+                (int) $table_number,
+                $location_id
+            ));
+        }
+
+        $available_tables = $this->get_tables_for_time_range(
+            $date,
+            $location_id,
+            $guest_count,
+            $window['actual_checkin'],
+            $window['actual_checkout'],
+            $booking_id
+        );
+
+        if (empty($available_tables)) {
+            return new WP_Error('no_table_available', __('No tables are available for the selected time.', 'restaurant-booking'));
+        }
+
+        if ($selected_table) {
+            if ((int) $selected_table->capacity < (int) $guest_count) {
+                return new WP_Error('table_capacity', __('Selected table does not have enough capacity.', 'restaurant-booking'));
+            }
+
+            $matching = array_filter($available_tables, function ($table) use ($selected_table) {
+                return (int) $table->id === (int) $selected_table->id;
+            });
+
+            if (empty($matching)) {
+                return new WP_Error('table_unavailable', __('Selected table is not available for this time slot.', 'restaurant-booking'));
+            }
+        } else {
+            $selected_table = reset($available_tables);
+        }
+
+        if (!$selected_table) {
+            return new WP_Error('table_not_found', __('Unable to assign a table to this booking.', 'restaurant-booking'));
+        }
+
+        $table_number = (int) $selected_table->table_number;
+
+        $update_data = array(
+            'booking_date' => $date,
+            'booking_time' => $normalized_checkin,
+            'checkin_time' => $normalized_checkin,
+            'checkout_time' => $normalized_checkout,
+            'table_number' => $table_number,
+            'updated_at' => current_time('mysql'),
+        );
+
+        if (!empty($window['actual_checkin'])) {
+            $update_data['actual_checkin'] = $this->format_datetime($window['actual_checkin']);
+        }
+
+        if (!empty($window['actual_checkout'])) {
+            $formatted_checkout = $this->format_datetime($window['actual_checkout']);
+            $update_data['actual_checkout'] = $formatted_checkout;
+            $update_data['cleanup_completed_at'] = $formatted_checkout;
+        }
+
+        $updated = $this->update_booking($booking_id, $update_data);
+
+        if (!$updated) {
+            return new WP_Error('db_error', __('Could not update booking.', 'restaurant-booking'));
+        }
+
+        $previous_table_id = 0;
+        if (!empty($booking->table_number)) {
+            $previous_table_id = (int) $this->wpdb->get_var($this->wpdb->prepare(
+                "SELECT id FROM {$tables_table} WHERE table_number = %d AND location_id = %d",
+                (int) $booking->table_number,
+                $location_id
+            ));
+        }
+
+        if ($previous_table_id && $previous_table_id !== (int) $selected_table->id) {
+            $this->clear_table_cleanup_schedule($previous_table_id);
+        }
+
+        $this->schedule_table_cleanup_completion((int) $selected_table->id, $booking_id);
+
+        /**
+         * Fires after a booking is moved on the timeline.
+         *
+         * @param int   $booking_id   Booking ID.
+         * @param object $booking     Original booking record.
+         * @param array  $update_data Updated fields.
+         */
+        do_action('rb_booking_moved', $booking_id, $booking, $update_data);
+
+        return array(
+            'booking_id' => $booking_id,
+            'table_number' => $table_number,
+            'checkin_time' => $normalized_checkin,
+            'checkout_time' => $normalized_checkout,
+        );
     }
     
     public function delete_booking($booking_id) {
@@ -826,6 +1004,10 @@ class RB_Booking {
                 $actual_checkout_ts = $this->parse_datetime_value($booking->cleanup_completed_at, $date);
             }
             $actual_checkout = $actual_checkout_ts ? $this->format_time_short($actual_checkout_ts) : '';
+            $duration_minutes = 0;
+            if (!empty($window['checkin']) && !empty($window['checkout'])) {
+                $duration_minutes = max(0, ($window['checkout'] - $window['checkin']) / MINUTE_IN_SECONDS);
+            }
 
             $tables_data[$table_lookup[$table_number]]['bookings'][] = array(
                 'booking_id' => (int) $booking->id,
@@ -838,6 +1020,9 @@ class RB_Booking {
                 'status' => $booking->status,
                 'guest_count' => (int) $booking->guest_count,
                 'booking_source' => $booking->booking_source,
+                'table_id' => (int) $tables_data[$table_lookup[$table_number]]['id'],
+                'table_number' => (int) $table_number,
+                'duration_minutes' => $duration_minutes,
             );
         }
 

@@ -538,7 +538,7 @@ class RB_Frontend_Public extends RB_Frontend_Base {
         $checkout_time = isset($_POST['checkout_time']) ? sanitize_text_field($_POST['checkout_time']) : '';
         $duration_hours = isset($_POST['duration']) ? floatval($_POST['duration']) : 0;
 
-        if (!$this->is_booking_allowed_on_date($booking_date_raw, $location_id)) {
+        if (!$this->is_booking_allowed_on_date($booking_date_raw, $location_id, $checkin_time)) {
             wp_send_json_error(array('message' => __('This date is not available for reservations. Please choose another day.', 'restaurant-booking')));
             wp_die();
         }
@@ -643,7 +643,7 @@ class RB_Frontend_Public extends RB_Frontend_Base {
             wp_die();
         }
 
-        if (!$this->is_booking_allowed_on_date($date, $location_id)) {
+        if (!$this->is_booking_allowed_on_date($date, $location_id, $checkin_time)) {
             wp_send_json_error(array('message' => __('This date is not available for reservations. Please choose another day.', 'restaurant-booking')));
             wp_die();
         }
