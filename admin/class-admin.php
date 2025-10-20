@@ -1610,6 +1610,7 @@ class RB_Admin {
             'autoRefresh' => true,
             'refreshInterval' => 30000,
             'lastUpdatedLabel' => esc_html__('Last updated:', 'restaurant-booking'),
+            'moveAction' => 'rb_move_timeline_booking',
         ));
 
         $active_location = $location_lookup[$selected_location_id];

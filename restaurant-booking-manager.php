@@ -180,6 +180,8 @@ function rb_admin_enqueue_scripts($hook) {
                     'loadError' => esc_html__('Unable to load timeline data. Please try again.', 'restaurant-booking'),
                     'statusUpdated' => esc_html__('Table status updated.', 'restaurant-booking'),
                     'statusUpdateError' => esc_html__('Could not update table status. Please try again.', 'restaurant-booking'),
+                    'moveSuccess' => esc_html__('Booking updated successfully.', 'restaurant-booking'),
+                    'moveError' => esc_html__('Unable to move the booking. Please try again.', 'restaurant-booking'),
                 ),
                 'labels' => array(
                     'lastUpdatedLabel' => esc_html__('Last updated:', 'restaurant-booking'),
@@ -353,6 +355,7 @@ function rb_frontend_enqueue_scripts() {
             'ajaxAction' => 'rb_manager_get_timeline',
             'statusAction' => 'rb_manager_update_table_status',
             'lastUpdatedLabel' => esc_html__('Last updated:', 'restaurant-booking'),
+            'moveAction' => '',
         ));
 
         wp_localize_script('rb-timeline-view', 'rbTimelineViewL10n', array(
@@ -372,6 +375,8 @@ function rb_frontend_enqueue_scripts() {
                 'loadError' => esc_html__('Unable to load timeline data. Please try again.', 'restaurant-booking'),
                 'statusUpdated' => esc_html__('Table status updated.', 'restaurant-booking'),
                 'statusUpdateError' => esc_html__('Could not update table status. Please try again.', 'restaurant-booking'),
+                'moveSuccess' => esc_html__('Booking updated successfully.', 'restaurant-booking'),
+                'moveError' => esc_html__('Unable to move the booking. Please try again.', 'restaurant-booking'),
             ),
             'labels' => array(
                 'lastUpdatedLabel' => esc_html__('Last updated:', 'restaurant-booking'),

@@ -30,10 +30,15 @@
             this.statusLabels = options.statuses || {};
             this.ajaxAction = options.ajaxAction || 'rb_get_timeline_data';
             this.statusAction = options.statusAction || 'rb_update_table_status';
+            this.moveAction = options.moveAction || 'rb_move_timeline_booking';
 
             this.intervalMinutes = 30;
             this.refreshHandle = null;
             this.isLoading = false;
+            this.dragState = null;
+            this.timelineStartSlot = null;
+            this.timelineEndSlot = null;
+            this.timelinePixelsPerMinute = this.slotHeight / Math.max(this.intervalMinutes, 1);
 
             this.init();
         }
@@ -203,6 +208,12 @@
             this.intervalMinutes = this.computeInterval(timeSlots);
             const slotHeight = this.slotHeight;
             const columnHeight = Math.max(timeSlots.length * slotHeight, slotHeight);
+            const startSlot = timeSlots[0];
+            const endSlot = timeSlots[timeSlots.length - 1];
+
+            this.timelineStartSlot = startSlot;
+            this.timelineEndSlot = endSlot;
+            this.timelinePixelsPerMinute = this.getPixelsPerMinute();
 
             const $grid = $('<div/>', { class: 'rb-timeline-grid' });
 
@@ -261,18 +272,16 @@
             const $columnsWrapper = $('<div/>', { class: 'rb-timeline-table-columns' });
             let hasBookings = false;
 
-            const startSlot = timeSlots[0];
-            const endSlot = timeSlots[timeSlots.length - 1];
-
             tables.forEach((table) => {
                 const $column = $('<div/>', {
                     class: 'rb-timeline-column',
-                    'data-table-id': table.id
+                    'data-table-id': table.id,
+                    'data-table-number': table.table_number
                 }).css('height', columnHeight + 'px');
 
                 const bookings = Array.isArray(table.bookings) ? table.bookings : [];
                 bookings.forEach((booking) => {
-                    const $booking = this.createBookingElement(booking, startSlot, endSlot, columnHeight);
+                    const $booking = this.createBookingElement(booking, startSlot, endSlot, columnHeight, table);
                     if ($booking) {
                         hasBookings = true;
                         $column.append($booking);
@@ -286,13 +295,14 @@
 
             $grid.append($headerRow, $body);
             this.$container.empty().append($grid);
+            this.enableDragAndDrop();
 
             if (!hasBookings) {
                 this.showNotice(this.messages.noBookings || 'No bookings for the selected time range.', 'info');
             }
         }
 
-        createBookingElement(booking, startSlot, endSlot, columnHeight) {
+        createBookingElement(booking, startSlot, endSlot, columnHeight, table) {
             const status = this.normalizeStatus(booking.status);
             const checkin = booking.actual_checkin || booking.checkin_time;
             const checkout = booking.actual_checkout || booking.checkout_time;
@@ -339,6 +349,22 @@
             }
 
             $booking.attr('title', [booking.customer_name, timeLabel, metaParts.join(' • ')].filter(Boolean).join('\n'));
+
+            const plannedCheckin = this.normalizeTimeString(booking.checkin_time || booking.actual_checkin || '');
+            const plannedCheckout = this.normalizeTimeString(booking.checkout_time || booking.actual_checkout || '');
+            const durationMinutes = booking.duration_minutes || bookingDuration;
+
+            $booking
+                .attr('draggable', true)
+                .data({
+                    bookingId: booking.booking_id || '',
+                    checkin: plannedCheckin,
+                    checkout: plannedCheckout,
+                    guestCount: booking.guest_count || 0,
+                    tableId: table && table.id ? table.id : (booking.table_id || ''),
+                    tableNumber: table && table.table_number ? table.table_number : (booking.table_number || ''),
+                    durationMinutes: durationMinutes
+                });
 
             $booking.append($('<div/>', { class: 'rb-booking-time', text: timeLabel }));
             $booking.append($('<div/>', { class: 'rb-booking-name', text: booking.customer_name || this.statusLabels[status] || '' }));
@@ -397,11 +423,231 @@
                 });
         }
 
+        enableDragAndDrop() {
+            if (!this.moveAction) {
+                return;
+            }
+
+            const $bookings = this.$container.find('.rb-timeline-booking');
+            if (!$bookings.length) {
+                return;
+            }
+
+            $bookings.attr('draggable', true);
+
+            this.$container.off('.rbTimelineDrag');
+            this.$container.on('dragstart.rbTimelineDrag', '.rb-timeline-booking', (event) => this.onBookingDragStart(event));
+            this.$container.on('dragend.rbTimelineDrag', '.rb-timeline-booking', (event) => this.onBookingDragEnd(event));
+            this.$container.on('dragover.rbTimelineDrag', '.rb-timeline-column', (event) => this.onColumnDragOver(event));
+            this.$container.on('dragleave.rbTimelineDrag', '.rb-timeline-column', (event) => this.onColumnDragLeave(event));
+            this.$container.on('drop.rbTimelineDrag', '.rb-timeline-column', (event) => this.onColumnDrop(event));
+        }
+
+        onBookingDragStart(event) {
+            const $booking = $(event.currentTarget);
+            const $column = $booking.closest('.rb-timeline-column');
+            const bookingId = parseInt($booking.data('bookingId'), 10) || parseInt($booking.attr('data-booking-id'), 10) || 0;
+            const tableId = parseInt($booking.data('tableId'), 10) || parseInt($column.data('table-id'), 10) || 0;
+            const tableNumber = parseInt($booking.data('tableNumber'), 10) || parseInt($column.data('table-number'), 10) || 0;
+            const checkin = this.normalizeTimeString($booking.data('checkin'));
+            const checkout = this.normalizeTimeString($booking.data('checkout'));
+            let duration = parseFloat($booking.data('durationMinutes'));
+            if (!duration || Number.isNaN(duration)) {
+                const checkinMinutes = this.parseTimeToMinutes(checkin);
+                const checkoutMinutes = this.parseTimeToMinutes(checkout);
+                if (checkinMinutes !== null && checkoutMinutes !== null) {
+                    duration = checkoutMinutes - checkinMinutes;
+                }
+            }
+            if (!duration || duration <= 0) {
+                duration = this.intervalMinutes;
+            }
+
+            this.dragState = {
+                bookingId,
+                originalTableId: tableId,
+                originalTableNumber: tableNumber,
+                checkin,
+                checkout,
+                durationMinutes: duration,
+                guestCount: parseInt($booking.data('guestCount'), 10) || 0
+            };
+
+            $booking.addClass('is-dragging');
+
+            if (event.originalEvent && event.originalEvent.dataTransfer) {
+                event.originalEvent.dataTransfer.effectAllowed = 'move';
+                event.originalEvent.dataTransfer.setData('text/plain', bookingId ? String(bookingId) : '');
+            }
+        }
+
+        onBookingDragEnd() {
+            this.clearDragHighlights();
+            this.dragState = null;
+        }
+
+        onColumnDragOver(event) {
+            if (!this.dragState) {
+                return;
+            }
+
+            event.preventDefault();
+            if (event.originalEvent && event.originalEvent.dataTransfer) {
+                event.originalEvent.dataTransfer.dropEffect = 'move';
+            }
+            $(event.currentTarget).addClass('is-drop-target');
+        }
+
+        onColumnDragLeave(event) {
+            $(event.currentTarget).removeClass('is-drop-target');
+        }
+
+        onColumnDrop(event) {
+            if (!this.dragState) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            const $column = $(event.currentTarget);
+            const columnRect = event.currentTarget.getBoundingClientRect();
+            const clientY = event.originalEvent ? event.originalEvent.clientY : event.clientY;
+            const relativeY = clientY - columnRect.top;
+            const columnHeight = $column.innerHeight();
+            const clampedY = Math.min(Math.max(relativeY, 0), columnHeight);
+            const startMinutes = this.parseTimeToMinutes(this.timelineStartSlot);
+            const endMinutes = this.parseTimeToMinutes(this.timelineEndSlot);
+
+            if (startMinutes === null || endMinutes === null) {
+                this.clearDragHighlights();
+                this.dragState = null;
+                return;
+            }
+
+            const pixelsPerMinute = this.getPixelsPerMinute();
+            const interval = this.intervalMinutes > 0 ? this.intervalMinutes : 15;
+            const duration = this.dragState.durationMinutes || interval;
+
+            let offsetMinutes = clampedY / pixelsPerMinute;
+            offsetMinutes = Math.round(offsetMinutes / interval) * interval;
+
+            let newStartMinutes = startMinutes + offsetMinutes;
+            const latestStart = endMinutes - duration;
+            if (!Number.isNaN(latestStart)) {
+                if (newStartMinutes > latestStart) {
+                    newStartMinutes = latestStart;
+                }
+            }
+
+            if (newStartMinutes < startMinutes) {
+                newStartMinutes = startMinutes;
+            }
+
+            let newCheckoutMinutes = newStartMinutes + duration;
+            if (newCheckoutMinutes > endMinutes) {
+                newStartMinutes = endMinutes - duration;
+                if (newStartMinutes < startMinutes) {
+                    newStartMinutes = startMinutes;
+                }
+                newCheckoutMinutes = newStartMinutes + duration;
+            }
+
+            const newCheckin = this.minutesToTime(newStartMinutes);
+            const newCheckout = this.minutesToTime(newCheckoutMinutes);
+            const tableId = parseInt($column.data('table-id'), 10) || 0;
+            const tableNumber = parseInt($column.data('table-number'), 10) || 0;
+
+            const originalCheckin = this.normalizeTimeString(this.dragState.checkin);
+            const originalCheckout = this.normalizeTimeString(this.dragState.checkout);
+
+            if (
+                tableId === this.dragState.originalTableId &&
+                newCheckin === originalCheckin &&
+                newCheckout === originalCheckout
+            ) {
+                this.clearDragHighlights();
+                this.dragState = null;
+                return;
+            }
+
+            const payload = {
+                bookingId: this.dragState.bookingId,
+                tableId,
+                tableNumber,
+                checkin: newCheckin,
+                checkout: newCheckout,
+                guestCount: this.dragState.guestCount
+            };
+
+            this.clearDragHighlights();
+            this.dragState = null;
+            this.moveBooking(payload);
+        }
+
+        moveBooking(update) {
+            if (!update || !update.bookingId || !this.moveAction) {
+                return;
+            }
+
+            if (!this.nonce) {
+                this.showNotice(this.messages.moveError || 'Unable to move booking.', 'error');
+                return;
+            }
+
+            const data = {
+                action: this.moveAction,
+                nonce: this.nonce,
+                booking_id: update.bookingId,
+                location_id: this.currentLocationId,
+                booking_date: this.currentDate,
+                checkin_time: update.checkin,
+                checkout_time: update.checkout
+            };
+
+            if (update.tableId) {
+                data.table_id = update.tableId;
+            }
+
+            if (update.tableNumber) {
+                data.table_number = update.tableNumber;
+            }
+
+            if (update.guestCount) {
+                data.guest_count = update.guestCount;
+            }
+
+            $.ajax({
+                url: this.ajaxUrl,
+                method: 'POST',
+                dataType: 'json',
+                data
+            })
+                .done((response) => {
+                    if (response && response.success) {
+                        this.showNotice(this.messages.moveSuccess || this.messages.statusUpdated || 'Booking updated.', 'success');
+                        this.showLoading();
+                        this.loadTimeline(false);
+                    } else {
+                        const message = response && response.data && response.data.message ? response.data.message : (this.messages.moveError || 'Unable to move booking.');
+                        this.showNotice(message, 'error');
+                    }
+                })
+                .fail(() => {
+                    this.showNotice(this.messages.moveError || 'Unable to move booking.', 'error');
+                });
+        }
+
         decorateHeaderStatus($header, status) {
             allowedStatuses.forEach((value) => {
                 $header.removeClass('is-status-' + value);
             });
             $header.addClass('is-status-' + status);
+        }
+
+        clearDragHighlights() {
+            this.$container.find('.rb-timeline-column').removeClass('is-drop-target');
+            this.$container.find('.rb-timeline-booking.is-dragging').removeClass('is-dragging');
         }
 
         showLoading() {
@@ -491,6 +737,13 @@
             return endMinutes - startMinutes;
         }
 
+        getPixelsPerMinute() {
+            if (this.intervalMinutes <= 0) {
+                return this.slotHeight;
+            }
+            return this.slotHeight / this.intervalMinutes;
+        }
+
         parseTimeToMinutes(time) {
             if (!time || typeof time !== 'string') {
                 return null;
@@ -505,6 +758,47 @@
                 return null;
             }
             return (hours * 60) + minutes;
+        }
+
+        minutesToTime(totalMinutes) {
+            if (typeof totalMinutes !== 'number' || Number.isNaN(totalMinutes)) {
+                return '';
+            }
+
+            const minutes = Math.max(0, Math.round(totalMinutes));
+            const hours = Math.floor(minutes / 60) % 24;
+            const mins = minutes % 60;
+
+            return String(hours).padStart(2, '0') + ':' + String(mins).padStart(2, '0');
+        }
+
+        normalizeTimeString(time) {
+            if (!time && time !== 0) {
+                return '';
+            }
+
+            if (typeof time === 'number') {
+                return this.minutesToTime(time);
+            }
+
+            const str = String(time).trim();
+            if (!str) {
+                return '';
+            }
+
+            const parts = str.split(':');
+            if (parts.length >= 2) {
+                const hours = parts[0].padStart(2, '0');
+                const minutes = parts[1].padStart(2, '0');
+                return hours + ':' + minutes;
+            }
+
+            if (parts.length === 1 && parts[0].length) {
+                const value = parts[0].padStart(4, '0');
+                return value.slice(0, 2) + ':' + value.slice(2);
+            }
+
+            return str;
         }
 
         buildBookingTimeLabel(booking) {
@@ -599,7 +893,8 @@
             messages: l10n.messages || {},
             statuses: l10n.statuses || {},
             ajaxAction: runtime.ajaxAction || $root.data('ajax-action') || 'rb_get_timeline_data',
-            statusAction: runtime.statusAction || $root.data('status-action') || 'rb_update_table_status'
+            statusAction: runtime.statusAction || $root.data('status-action') || 'rb_update_table_status',
+            moveAction: runtime.moveAction || $root.data('move-action') || ''
         });
 
         function adminAjaxUrl() {

@@ -135,7 +135,7 @@ abstract class RB_Frontend_Base {
         return $slots;
     }
 
-    protected function is_booking_allowed_on_date($date, $location_id = null) {
+    protected function is_booking_allowed_on_date($date, $location_id = null, $checkin_time = null) {
         $settings = array();
 
         if ($location_id && $this->location_helper) {
@@ -164,7 +164,21 @@ abstract class RB_Frontend_Base {
         $min_advance = isset($settings['min_advance_booking']) ? intval($settings['min_advance_booking']) : 2;
         $max_advance = isset($settings['max_advance_booking']) ? intval($settings['max_advance_booking']) : 30;
 
-        $booking_timestamp = strtotime($date);
+        $date = trim((string) $date);
+        if (empty($date)) {
+            return false;
+        }
+
+        if (!empty($checkin_time) && preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $checkin_time)) {
+            $booking_timestamp = strtotime($date . ' ' . $checkin_time);
+        } else {
+            $booking_timestamp = strtotime($date . ' 23:59:59');
+        }
+
+        if (!$booking_timestamp) {
+            return false;
+        }
+
         $now = current_time('timestamp');
         $min_timestamp = $now + ($min_advance * HOUR_IN_SECONDS);
         $max_timestamp = $now + ($max_advance * DAY_IN_SECONDS);

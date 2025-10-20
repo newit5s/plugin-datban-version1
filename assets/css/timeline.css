@@ -292,6 +292,11 @@
     pointer-events: none;
 }
 
+.rb-timeline-column.is-drop-target {
+    outline: 2px dashed rgba(37, 99, 235, 0.45);
+    background: rgba(37, 99, 235, 0.08);
+}
+
 .rb-timeline-booking {
     position: absolute;
     left: 12px;
@@ -305,6 +310,11 @@
     gap: 4px;
     cursor: pointer;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rb-timeline-booking.is-dragging {
+    opacity: 0.65;
+    box-shadow: 0 16px 30px rgba(15, 23, 42, 0.25);
 }
 
 .rb-timeline-booking:hover {
